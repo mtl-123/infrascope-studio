@@ -2,7 +2,7 @@
 (()=>{
 const root=document.getElementById('infra-observer'),content=root.querySelector('#io-content'),feedback=root.querySelector('#io-feedback');
 const devices=[['linux-app-01','Linux','生产 / 办公系统','42%','61%','2s','正常'],['win-ad-01','Windows','生产 / 身份认证','18%','54%','3s','正常'],['pve-node-01','PVE','机房 A / 虚拟化','67%','78%','6s','正常'],['nas-backup-01','NAS','备份 / 存储池','12%','38%','35s','正常'],['printer-finance','打印机','办公 / 财务','—','—','42s','缺纸'],['linux-batch-02','Linux','测试 / 批处理','—','—','87s','数据过期']];
-let page='overview',channel='企业微信',detail=false;const drafts={};
+let page=(location.hash.slice(1)||'overview'),channel='企业微信',detail=false;const drafts={};
 const table=(heads,rows)=>'<div class="wrap"><table><thead><tr>'+heads.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
 const box=(title,body)=>'<section class="box"><h3>'+title+'</h3>'+body+'</section>';
 const stats=items=>'<div class="stats">'+items.map(([a,b,c])=>'<div class="box"><div class="muted">'+a+'</div><div class="value">'+b+'</div><div class="muted">'+c+'</div></div>').join('')+'</div>';
@@ -10,6 +10,7 @@ const head=(title,sub)=>'<h2>'+title+'</h2><div class="muted">'+sub+'</div>';
 const btn=(text,action)=>'<button data-action="'+action+'">'+text+'</button>';
 const meter=(name,n)=>'<div class="event"><div class="row between"><span>'+name+'</span><span>'+n+'%</span></div><div class="bar"><span style="width:'+n+'%"></span></div></div>';
 function draw(){feedback.textContent='';root.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+if(window.InfraReliability?.pages.includes(page)){window.InfraReliability.render(page);return;}
 if(window.InfraWorkspace&&['overview','directory','live-network'].includes(page)){window.InfraWorkspace.render(page);return;}
 if(window.InfraOps&&['alerts','domains','traffic'].includes(page)){window.InfraOps.render(page);return;}
 if(window.InfraInventory&&['devices','containers','services','switches'].includes(page)){window.InfraInventory.render(page,detail?'s1':null);return;}
