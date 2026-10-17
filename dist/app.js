@@ -10,6 +10,7 @@ const head=(title,sub)=>'<h2>'+title+'</h2><div class="muted">'+sub+'</div>';
 const btn=(text,action)=>'<button data-action="'+action+'">'+text+'</button>';
 const meter=(name,n)=>'<div class="event"><div class="row between"><span>'+name+'</span><span>'+n+'%</span></div><div class="bar"><span style="width:'+n+'%"></span></div></div>';
 function draw(){feedback.textContent='';root.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+if(window.InfraOps&&['alerts','domains','traffic'].includes(page)){window.InfraOps.render(page);return;}
 if(window.InfraInventory&&['devices','containers','services','switches'].includes(page)){window.InfraInventory.render(page,detail?'s1':null);return;}
 if(page==='network')window.renderNetwork();
 if(page!=='network'&&window.InfraAppReady)try{history.replaceState(null,'','#'+page);}catch{}
