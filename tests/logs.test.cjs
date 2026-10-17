@@ -1,0 +1,56 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const C=require('../dist/logs-core.js');
+const base={id:'1',source:'s',stream:'a',generation:'g',sequence:1,eventAt:1000,observedAt:1300,level:'ERROR',message:'timeout x=1',host:'h1',hostName:'server-a',group:'g1',groupName:'office-api',instanceName:'replica-1',sourceName:'API',serviceName:'办公接口',patternKey:'timeout'};
+const rows=[base,{...base,id:'2',sequence:2,eventAt:2000,observedAt:2300,message:'request success',level:'INFO'}, {...base,id:'3',sequence:3,eventAt:3000,observedAt:3300,host:'h2'}, {...base,id:'4',sequence:1,stream:'b',eventAt:1500,observedAt:1800}];
+assert.equal(C.select(rows,{from:1000,to:3000,q:'group:office-api level:ERROR -"no match"'}).rows.length,2);
+assert.equal(C.select(rows,{from:1000,to:3000,host:'h1',q:'"timeout x=1"'}).rows.length,2);
+assert.equal(C.select(rows,{from:1000,to:2000,q:'level:INFO'}).rows.length,0,'End is exclusive');
+assert.ok(C.query('bogus:x').error);assert.ok(C.query('"unterminated').error);assert.ok(C.select(rows,{from:2,to:1}).error);
+assert.ok(Number.isNaN(C.localTime('2026-02-30T09:20')));assert.equal(C.localTime('2026-10-18T02:10'),Date.parse('2026-10-17T18:10:00Z'));
+assert.deepEqual(C.context(rows,base).map(r=>r.id),['1','2','3'],'Context retains INFO and excludes other streams');
+assert.equal(C.dedupe([base],[base,{...base,id:'another',sequence:2}]).rows.length,2,'Same message at different source position must survive');
+assert.equal(C.dedupe([base],[base]).duplicates,1);
+assert.equal(C.lag([{eventAt:1000,observedAt:500},{eventAt:null,observedAt:1000},base]).p95,300);
+assert.equal(C.patterns([{...base,level:'ERROR'},{...base,id:'2',level:'WARN'}]).length,2,'Do not merge errors across severity');
+assert.equal(C.histogram(rows,1000,3000,2).reduce((n,b)=>n+b.total,0),3);
+assert.ok(!JSON.stringify(C.redact({password:'secret-value',nested:{authorization:'Bearer abc'},message:'token=xyz Authorization: Bearer abc'})).includes('abc'));
+assert.equal(C.parse('{"time":"2026-10-18 02:10:00","level":"wat","password":"private"}','json').value.time_quality,'missing_or_ambiguous_use_observed');
+assert.equal(C.parse('{"timestamp":"2026-10-18T02:10:00+08:00","level":"error"}','json').value.event_time,'2026-10-17T18:10:00.000Z');
+assert.ok(C.parse('{broken','json').error);assert.ok(C.parse('x'.repeat(262145),'text').error);
+assert.ok(C.csv([{...base,message:'=HYPERLINK("evil")'}]).includes("'=HYPERLINK"),'CSV formula neutralization');
+assert.equal(C.health({state:'pending',enabled:true},61000).state,'unknown');
+assert.equal(C.health({state:'healthy',enabled:true,heartbeat:0,watermark:61000},61000).state,'firing');
+const src={id:'s',enabled:true,state:'healthy',heartbeat:61000,captureStart:0,watermark:61000,gap:false},rule={source:'s',q:'level:ERROR',window:1,threshold:2};
+assert.equal(C.rule(rule,rows,[src],61000).state,'firing');assert.equal(C.rule(rule,rows,[{...src,gap:true}],61000).state,'unknown');assert.equal(C.rule(rule,[],[{...src,heartbeat:0}],61000).state,'unknown');assert.equal(C.rule(rule,[],[{...src,watermark:60000}],61000).state,'unknown');assert.equal(C.rule(rule,[],[src],61000).state,'normal');
+
+// Render and event integration without a browser. Visual layout is not verified here.
+const node=()=>({innerHTML:'',textContent:'',value:'',dataset:{},hidden:false,focus:()=>{},querySelector:()=>null,querySelectorAll:()=>[],classList:{toggle:()=>{}}});
+const nodes=new Map(),content=node(),feedback=node(),crumb=node(),handlers={};
+content.querySelector=s=>{if(!nodes.has(s))nodes.set(s,node());return nodes.get(s);};
+const root={...node(),addEventListener:(type,fn)=>(handlers[type]??=[]).push(fn)};
+root.querySelector=s=>s==='#io-content'?content:s==='#io-feedback'?feedback:s==='#studio-breadcrumb'?crumb:null;
+const stored={};const ctx={window:{addEventListener:()=>{}},document:{getElementById:()=>root,body:{classList:{toggle:()=>{}}}},history:{replaceState:()=>{}},location:{hash:''},localStorage:{getItem:k=>stored[k],setItem:(k,v)=>stored[k]=v},structuredClone,URL,Date,TextEncoder,console,setInterval:()=>1,clearInterval:()=>{},setTimeout:()=>1,FormData:class{constructor(x){this.x=x}get(k){return this.x.fields[k]}}};vm.createContext(ctx);
+for(const p of ['inventory','ops-core','operations','workspace-core','workspace','logs-core','logs-data','logs'])vm.runInContext(fs.readFileSync('dist/'+p+'.js','utf8'),ctx);
+const ui=ctx.window.InfraLogs,click=(action,id='')=>handlers.click.at(-1)({target:{closest:()=>({dataset:{lg:action,id}})}});
+ui.render();assert.match(content.innerHTML,/日志中心/);assert.ok(ui.testing.result().rows.length>200);const initialCount=ui.testing.records().length;
+click('source-health');click('source-health');assert.equal(ctx.window.InfraOps.events().filter(e=>e.rule?.startsWith('log-source:')).length,2,'Collector incidents dedupe separately from business failures');
+for(const p of ['search','patterns','audit','sources','pipeline','rules','quality']){click('tab',p);assert.match(content.innerHTML,/模拟数据/);assert.ok(!content.innerHTML.includes('NaN'));assert.ok(!content.innerHTML.includes('undefined'));}
+click('source-new');assert.match(content.innerHTML,/新增日志源/);click('close');
+click('rule-new');assert.match(content.innerHTML,/新增日志告警规则/);click('close');
+ui.testing.evaluate('lr-api');const events=ctx.window.InfraOps.events();const apiEvent=events.find(e=>e.rule==='log:lr-api');assert.ok(apiEvent);assert.equal(apiEvent.kind,'logs');assert.equal(apiEvent.logEvidence.ids.length,21);
+ui.testing.evaluate('lr-api');assert.equal(events.filter(e=>e.rule==='log:lr-api').length,1,'Reevaluation must dedupe event');
+ui.testing.evaluate('lr-billing');assert.equal(ui.testing.state().runtime['lr-billing'].state,'unknown');assert.ok(!events.some(e=>e.rule==='log:lr-billing'),'Gap must suppress threshold evaluation');
+ui.testing.state().sources.find(s=>s.id==='ls-office').gap=true;ui.testing.evaluate('lr-api');assert.equal(apiEvent.resolved,null,'Missing source cannot recover an active incident');
+ui.testing.state().sources.find(s=>s.id==='ls-office').gap=false;click('recovery');ui.testing.evaluate('lr-api');assert.ok(apiEvent.resolved,'New complete recovery window resolves incident');
+ui.testing.evaluate('lr-billing');assert.equal(ui.testing.state().runtime['lr-billing'].state,'unknown','Recovery does not heal unrelated collection gap');
+assert.equal(ui.testing.records().length,initialCount+1);assert.equal(JSON.parse(stored['infrascope.logs.v1']).extraRecords.length,1,'Tail messages persist with evidence');
+ui.openEvidence(apiEvent.logEvidence);assert.equal(ui.testing.result().rows.length,21,'Incident evidence filters replay matching logs');
+click('detail',apiEvent.logEvidence.ids[0]);assert.match(content.innerHTML,/同一来源、实例与代次的前后文/);assert.match(content.innerHTML,/事件时间/);click('close');
+click('tab','sources');click('source-new');const submit=handlers.submit.at(-1);submit({preventDefault:()=>{},target:{id:'lg-editor',fields:{name:'New source <script>',host:'s1',type:'文件',group:'',locator:'/var/log/custom.log',parser:'text'}}});
+const added=ui.testing.state().sources.find(s=>s.name.startsWith('New source'));assert.ok(added);assert.equal(added.state,'pending');assert.equal(ui.testing.records().length,initialCount+1,'Adding source must not invent history');assert.ok(!content.innerHTML.includes('New source <script>'));assert.match(content.innerHTML,/New source &lt;script&gt;/);
+click('source-edit',added.id);submit({preventDefault:()=>{},target:{id:'lg-editor',fields:{name:'Moved source',host:'s1',type:'文件',group:'',locator:'/var/log/other.log',parser:'text'}}});assert.equal(added.enabled,false);assert.equal(ui.testing.state().sources.find(s=>s.name==='Moved source').state,'pending');
+click('source-search',added.id);assert.equal(ui.testing.result().rows.length,0);
+// Scope uses persistent group ID, not a name substring.
+const replica=ctx.window.InfraInventory.data().containers.find(c=>c.id==='demo-c4');assert.ok(replica);const office=ui.testing.records().filter(r=>r.source==='ls-office');assert.ok(new Set(office.map(r=>r.host)).size>1);
+const index=fs.readFileSync('dist/index.html','utf8');assert.ok(index.indexOf('logs.js')<index.indexOf('app.js'));assert.match(fs.readFileSync('dist/app.js','utf8'),/window.InfraLogs.render/);assert.match(fs.readFileSync('dist/operations.js','utf8'),/log-evidence/);
+console.log('PASS: query and time bounds; context isolation; dedupe; redaction; parsing; CSV safety; gap-aware rules; source identity changes; all log screens render; unified incident creation, dedupe, unknown guard, recovery and evidence replay. Browser layout not verified.');
