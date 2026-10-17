@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 // Exercise data validation, state transitions and rendering without a browser.
 // Actual DOM interactions and layout still require browser QA.
-const source=fs.readFileSync('dist/inventory.js','utf8').replace('window.InfraInventory={render,data:()=>db,save,openForm,helpers:{esc,badge,table,box,stats,facts,field,number,validHost,isIP},refresh:draw};','window.InfraInventory={render};window.test={db,render,draw,submitForm,probe,detail,portData,validHost,isIP,esc,set:(p,id)=>{active=p;selected=id;}};');
+const source=fs.readFileSync('dist/inventory.js','utf8').replace('const entry=location.hash.slice(1);','window.test={db,render,draw,submitForm,probe,detail,portData,validHost,isIP,esc,set:(p,id)=>{active=p;selected=id;}};const entry=location.hash.slice(1);');
 const list={innerHTML:''},feedback={textContent:''},breadcrumb={textContent:''},probeInput={value:'ok'};
 const content={dataset:{},innerHTML:'',querySelector:s=>s==='#iv-probe-result'?probeInput:list};
 const root={querySelector:s=>({'#io-content':content,'#io-feedback':feedback,'#studio-breadcrumb':breadcrumb}[s]),querySelectorAll:()=>[],addEventListener:()=>{}};

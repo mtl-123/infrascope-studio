@@ -1,0 +1,15 @@
+
+Files: test/shape/data/in-house/fonts/*
+Copyright: 2000-2016, Adobe Systems Incorporated
+          2016, Alfredo Marco Pradil
+          2018-2022, David Corbett
+          2010-2022, Google, Inc
+          2011-2012, Lohit Fonts Project contributors <https://pagure.io/lohit>
+          2013-2020, Microsoft Corporation
+          2018, SIL International (http://scripts.sil.org)
+          2010-2021, The Amiri Project Authors (https://github.com/aliftype/amiri)
+          2015-2021, The Mada Project Authors
+          2021, The Qahiri Project Authors (github.com/aliftype/qahiri)
+          2021, The Raqq Project Authors (github.com/aliftype/raqq)
+          2018, Unicode, Inc
+          2005, Zawgyi.net & Alpha Mandalay
