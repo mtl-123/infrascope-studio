@@ -1,0 +1,9 @@
+PASS JavaScript syntax: dist/remote-access.js
+PASS JavaScript syntax: windows-connector/server.mjs
+PASS JavaScript syntax: windows-connector/public/app.js
+PASS JavaScript syntax: windows-connector/protocol.mjs
+PASS HTML unique IDs and local assets: dist/index.html
+PASS HTML unique IDs and local assets: dist/remote-workspace.html
+PASS HTML unique IDs and local assets: windows-connector/public/index.html
+PASS git diff whitespace check
+LIMIT: no browser rendering or Windows runtime execution in these checks.

@@ -1,0 +1,11 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> infrascope-studio@0.7.0 test:existing
+> node tests/inventory.test.cjs && node tests/ops-core.test.cjs && node tests/operations.test.cjs && node tests/workspace.test.cjs && node tests/reliability.test.cjs && node tests/logs.test.cjs
+
+PASS: rendering smoke, IPv4/IPv6, escaping, duplicate IP/ports, object associations, unknown states, detection thresholds, interrupted recovery and persistence. Browser layout not tested.
+PASS: egress selection across IPv4/IPv6, ties and link loss; historical totals, weighted averages, gaps, buckets, safe CSV; alert transitions and unknown samples.
+PASS: all module and detail render paths, new-device unknown states, discovery metadata, no historical backfill, rule event deduplication/recovery, event-to-traffic correlation, persistence. Browser DOM/layout not verified.
+PASS: Docker grouping and stable policy keys, live descending sorting and stale exclusion, multiple same-name people, custom identity, required assignment, integrated page render smoke and persistence. Browser layout not verified.
+PASS: SLO budget and missing-data guard; dual-window burn; evidence-gated recovery; historical budget retention; scope isolation; instance replacement policy continuity; all new page renders and investigation interactions. Browser layout not verified.
+PASS: query and time bounds; context isolation; dedupe; redaction; parsing; CSV safety; gap-aware rules; source identity changes; all log screens render; unified incident creation, dedupe, unknown guard, recovery and evidence replay. Browser layout not verified.

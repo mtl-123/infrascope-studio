@@ -10,6 +10,8 @@ const head=(title,sub)=>'<h2>'+title+'</h2><div class="muted">'+sub+'</div>';
 const btn=(text,action)=>'<button data-action="'+action+'">'+text+'</button>';
 const meter=(name,n)=>'<div class="event"><div class="row between"><span>'+name+'</span><span>'+n+'%</span></div><div class="bar"><span style="width:'+n+'%"></span></div></div>';
 function draw(){feedback.textContent='';root.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+if(page!=='remote-access')window.InfraRemote?.leave();
+if(page==='remote-access'&&window.InfraRemote){window.InfraRemote.render();return;}
 if(page!=='logs')window.InfraLogs?.leave();
 if(page==='logs'&&window.InfraLogs){window.InfraLogs.render();return;}
 if(window.InfraReliability?.pages.includes(page)){window.InfraReliability.render(page);return;}

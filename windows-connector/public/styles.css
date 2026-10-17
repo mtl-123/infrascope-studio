@@ -1,0 +1,271 @@
+:root {
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: #202622;
+  background: #f5f6f4;
+  font-size: 14px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  max-width: 1040px;
+  margin: auto;
+  padding: 26px 30px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.logo {
+  background: #19251f;
+  color: white;
+  border-radius: 9px;
+  padding: 12px;
+  font-size: 24px;
+  font-weight: 700;
+}
+small {
+  display: block;
+  font-size: 12px;
+  color: #78847b;
+  margin-top: 5px;
+}
+#statusDot {
+  margin-left: auto;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #488bc5;
+  display: inline-block;
+  flex: none;
+}
+.ready {
+  background: #28805b;
+}
+.warning {
+  background: #bb882c;
+}
+.error {
+  background: #c74848;
+}
+main {
+  max-width: 980px;
+  margin: 20px auto 60px;
+  padding: 0 24px;
+}
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+}
+h1 {
+  font-size: 32px;
+  letter-spacing: -1px;
+  margin: 8px 0;
+}
+h2 {
+  font-size: 17px;
+  margin: 0;
+}
+section {
+  background: #fff;
+  border: 1px solid #dce2dc;
+  border-radius: 14px;
+  padding: 28px;
+  margin-bottom: 18px;
+}
+.status {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 24px;
+}
+.status button {
+  margin-left: auto;
+}
+.section-title {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.section-title > span {
+  color: #88968a;
+  font-size: 12px;
+  padding-top: 3px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+label {
+  display: block;
+  font-weight: 500;
+}
+input,
+select,
+button {
+  font: inherit;
+}
+input:not([type="checkbox"]),
+select {
+  width: 100%;
+  background: #fafbf9;
+  border: 1px solid #ccd6ce;
+  border-radius: 7px;
+  padding: 11px;
+  margin-top: 8px;
+  outline-offset: 3px;
+}
+button {
+  cursor: pointer;
+  padding: 10px 17px;
+  border: 1px solid #ced8d0;
+  background: white;
+  border-radius: 7px;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.password {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.password input {
+  flex: 1;
+  min-width: 0;
+}
+.switch {
+  position: relative;
+  padding: 14px;
+  background: #f7f9f6;
+  border-radius: 8px;
+}
+.switch input {
+  float: right;
+  accent-color: #26664f;
+  width: 18px;
+  height: 18px;
+}
+#driveControls {
+  border-top: 1px solid #e3e8e2;
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+footer small {
+  max-width: 60%;
+  line-height: 1.7;
+}
+#launchMstscButton {
+  background: #193e30;
+  color: white;
+  border-color: #193e30;
+  padding: 13px 22px;
+}
+#rdpValidation {
+  color: #ad3636;
+  min-height: 20px;
+}
+.note {
+  font-size: 12px;
+  color: #859188;
+  line-height: 1.8;
+  text-align: center;
+  margin-top: 30px;
+}
+#toast:empty {
+  display: none;
+}
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #263d31;
+  color: white;
+  padding: 14px 26px;
+  border-radius: 10px;
+  max-width: 90vw;
+}
+#pairForm {
+  display: grid;
+  gap: 15px;
+  margin: 20px 0;
+}
+.task {
+  padding: 16px;
+  background: #f5f8f4;
+  border-radius: 8px;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.task button {
+  float: right;
+}
+p {
+  line-height: 1.7;
+}
+[hidden] {
+  display: none !important;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #3c8e66;
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  header {
+    padding: 18px;
+    font-size: 12px;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .title {
+    display: block;
+  }
+  .title > span {
+    display: block;
+    margin-top: 12px;
+  }
+  section {
+    padding: 20px;
+  }
+  footer {
+    display: block;
+  }
+  footer small {
+    max-width: 100%;
+    margin-bottom: 14px;
+  }
+  #launchMstscButton {
+    width: 100%;
+  }
+  h1 {
+    font-size: 28px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

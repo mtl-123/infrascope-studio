@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+remote-access/bin/
+remote-access/test-results/
+*.log
+*.rdp
+*.pfx
+*.key
+!**/fixtures/**
+

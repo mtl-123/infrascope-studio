@@ -1,0 +1,3 @@
+PASS AST syntax: device-secrets.ps1
+PASS AST syntax: launch-rdp.ps1
+PASS AST syntax: setup-rdp-signing.ps1

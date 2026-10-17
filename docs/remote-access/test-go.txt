@@ -1,0 +1,20 @@
+?   	infrascope/remote-access/cmd/infrascope	[no test files]
+=== RUN   TestCredentialsAndPassword
+--- PASS: TestCredentialsAndPassword (1.17s)
+=== RUN   TestPathsAndRDP
+--- PASS: TestPathsAndRDP (0.00s)
+=== RUN   TestStrictJSON
+--- PASS: TestStrictJSON (0.00s)
+=== RUN   TestIntegrationIdentitySSHAndRevocation
+--- PASS: TestIntegrationIdentitySSHAndRevocation (7.27s)
+=== RUN   TestIntegrationSFTPIntegrity
+--- PASS: TestIntegrationSFTPIntegrity (4.69s)
+=== RUN   TestIntegrationRDPDeviceProtocol
+--- PASS: TestIntegrationRDPDeviceProtocol (2.44s)
+=== RUN   TestIntegrationResumeAndConflict
+--- PASS: TestIntegrationResumeAndConflict (2.68s)
+=== RUN   TestIntegrationWorkspaceAndGroupScope
+--- PASS: TestIntegrationWorkspaceAndGroupScope (4.46s)
+PASS
+ok  	infrascope/remote-access/internal/access	23.745s
+?   	infrascope/remote-access/migrations	[no test files]

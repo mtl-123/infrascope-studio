@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f5f6f4" />
+    <title>RDP Access Console</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <span class="logo" aria-hidden="true">R</span>
+      <div>
+        <strong>RDP Access</strong><small>InfraScope · 用户电脑连接器</small>
+      </div>
+      <span id="statusDot" class="dot"></span
+      ><span id="headerStatus" aria-live="polite">正在检查本机连接器</span>
+    </header>
+    <main>
+      <div class="title">
+        <div>
+          <small>REMOTE DESKTOP</small>
+          <h1 id="pageTitle">建立 RDP 连接</h1>
+        </div>
+        <span id="rdpTargetSummary">尚未选择目标</span>
+      </div>
+      <section class="status">
+        <span id="connectorIndicator" class="dot"></span>
+        <div>
+          <strong id="launcherState">正在检测一键直连</strong
+          ><small>本机 mstsc · 受信任 RDP 签名</small>
+        </div>
+        <button id="setupSigningButton" hidden>首次启用</button>
+      </section>
+      <section id="controlledPanel" hidden>
+        <h2>平台配对与授权任务</h2>
+        <p>
+          仅接收当前 Windows 用户已配对的 InfraScope
+          平台授权。请核对设备和目标后在本机确认。
+        </p>
+        <form id="pairForm">
+          <label
+            >平台显示的配对码<input
+              id="pairChallenge"
+              autocomplete="off"
+              required /></label
+          ><label
+            >设备名称<input
+              id="pairName"
+              value="我的 Windows 工作站"
+              required
+              maxlength="100" /></label
+          ><button>绑定此电脑</button>
+        </form>
+        <p id="pairedState" role="status"></p>
+        <div id="pendingTasks"></div>
+        <div id="recentTasks"></div>
+      </section>
+      <form id="rdpForm" novalidate>
+        <section aria-labelledby="targetHeading">
+          <div class="section-title">
+            <span>01</span>
+            <div>
+              <h2 id="targetHeading">目标与凭据</h2>
+              <small>Windows 远程桌面目标 · 单机兼容模式</small>
+            </div>
+          </div>
+          <div class="grid">
+            <label
+              >IP 地址或主机名<input
+                id="rdpAddress"
+                placeholder="192.168.10.10"
+                autocomplete="off"
+                spellcheck="false"
+                autofocus
+                required /></label
+            ><label
+              >端口<input
+                id="rdpPort"
+                type="number"
+                value="3389"
+                min="1"
+                max="65535"
+                inputmode="numeric"
+                required /></label
+            ><label
+              >用户名<input
+                id="rdpUsername"
+                placeholder="DOMAIN\user"
+                autocomplete="username"
+                spellcheck="false" /></label
+            ><label
+              >密码
+              <div class="password">
+                <input
+                  id="rdpPassword"
+                  type="password"
+                  placeholder="输入登录密码"
+                  autocomplete="current-password"
+                /><button id="showPassword" type="button" aria-pressed="false">
+                  显示
+                </button>
+              </div></label
+            >
+          </div>
+        </section>
+        <section aria-labelledby="resourceHeading">
+          <div class="section-title">
+            <span>02</span>
+            <div>
+              <h2 id="resourceHeading">会话资源</h2>
+              <small>本地设备与显示设置</small>
+            </div>
+          </div>
+          <div class="grid">
+            <label class="switch"
+              >同步剪贴板
+              <input id="redirectClipboard" type="checkbox" checked /><small
+                >本地与远程复制粘贴</small
+              ></label
+            ><label class="switch"
+              >映射本地磁盘
+              <input id="redirectDrives" type="checkbox" checked /><small
+                >在远程机器中访问本地磁盘</small
+              ></label
+            ><label class="switch"
+              >全屏启动 <input id="fullscreen" type="checkbox" checked /><small
+                >使用当前显示器全屏连接</small
+              ></label
+            ><label class="switch"
+              >使用所有显示器 <input id="multiMonitor" type="checkbox" /><small
+                >跨多个显示器显示会话</small
+              ></label
+            >
+          </div>
+          <div id="driveControls" class="grid">
+            <label
+              >磁盘范围<select id="driveMode">
+                <option value="all">所有本地磁盘</option>
+                <option value="custom">指定盘符</option>
+              </select></label
+            ><label id="driveListField" hidden
+              >本地盘符<input
+                id="driveList"
+                value="C:\;D:\"
+                placeholder="C:\;D:\"
+                spellcheck="false"
+            /></label>
+          </div>
+        </section>
+        <p id="rdpValidation" role="alert"></p>
+        <footer>
+          <small
+            >密码仅传给本机连接器；临时凭据和 RDP 文件在启动后约 30
+            秒清理。页面密码框不会自动清空。</small
+          ><button id="launchMstscButton" disabled>连接远程桌面</button>
+        </footer>
+      </form>
+      <p class="note">
+        启动成功表示 mstsc
+        进程已创建，不代表远程登录成功。关闭平台会话不能强制结束已建立的 Windows
+        远程会话。
+      </p>
+    </main>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

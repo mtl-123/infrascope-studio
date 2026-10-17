@@ -1,0 +1,12 @@
+✔ real HTTP API protects localhost and reports unsupported platform (34.191228ms)
+✔ strict config preserves passwords and account notation (16.565115ms)
+✔ invalid ports, targets, fields and booleans fail closed (0.940865ms)
+✔ loopback, DNS rebinding, Origin and token isolation (1.309557ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 368.246971

@@ -1,0 +1,19 @@
+{
+  "name": "infrascope-studio",
+  "private": true,
+  "version": "0.7.0",
+  "scripts": {
+    "vendor:terminal": "node scripts/vendor-terminal.mjs",
+    "test:existing": "node tests/inventory.test.cjs && node tests/ops-core.test.cjs && node tests/operations.test.cjs && node tests/workspace.test.cjs && node tests/reliability.test.cjs && node tests/logs.test.cjs"
+  },
+  "dependencies": {
+    "@xterm/xterm": "6.0.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-search": "0.16.0",
+    "@xterm/addon-serialize": "0.14.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@electric-sql/pglite-socket": "0.2.13"
+  }
+}
