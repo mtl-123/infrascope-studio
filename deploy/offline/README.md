@@ -64,3 +64,5 @@ Compose 禁止拉取镜像，所有服务使用本包加载的镜像。Web 与 A
 更新前先备份，再用新包中的镜像、compose 和脚本替换同名发布文件，保留 `config/ data/ logs/`。执行 `./start.sh`，不会重置现有密码或加密密钥。更改入口地址/端口时，在 `config/deploy.env` 和 `config/app.env` 同步设置并换用匹配证书。
 
 客户端 Agent 是独立程序，使用仓库 telemetry-agent 的发布包；本离线服务包不包含目标机器身份或注册令牌。部分原监控/日志页面仍为演示，服务部署成功不代表完整产品验收。
+
+“本机发现”当前仅验证 WSL，普通 Linux/Docker 部署会明确拒绝自动分类；请使用手工添加资产、CSV 导入或独立 Agent 注册接入。

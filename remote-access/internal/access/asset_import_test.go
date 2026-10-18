@@ -301,6 +301,20 @@ func TestIntegrationLocalDiscoveryObservesHostBeforeConfirmation(t *testing.T) {
 	for _, forbidden := range []string{"host", "url", "command"} {
 		p2ScopeJSON(h, h.admin, "POST", path, map[string]any{"claimantId": person, forbidden: "arbitrary-target"}, 400)
 	}
+	// Discovery currently has evidence for WSL classification only. Other Linux
+	// hosts must reject without creating inventory, rather than guess a kind.
+	kernel, err := os.ReadFile("/proc/sys/kernel/osrelease")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.ToLower(string(kernel)), "microsoft") {
+		response := p2ScopeJSON(h, h.admin, "POST", path, map[string]any{"claimantId": person}, 501)
+		if response["code"] != "discovery_classification_unverified" {
+			t.Fatalf("wrong discovery rejection: %v", response)
+		}
+		p2ImportAssetCount(h, 0)
+		return
+	}
 	started := time.Now().Add(-time.Second)
 	job := p2ScopeJSON(h, h.admin, "POST", path, map[string]any{"claimantId": person}, 200)
 	rows := p2ImportRows(t, job, "ready")

@@ -4,6 +4,14 @@ on:
   push:
     paths:
       - Dockerfile
+      - .dockerignore
+      - .node-version
+      - package.json
+      - package-lock.json
+      - remote-access/**
+      - web/**
+      - scripts/build.mjs
+      - scripts/vendor-terminal.mjs
       - deploy/offline/**
       - scripts/package-offline.mjs
       - scripts/test-offline-package.mjs
