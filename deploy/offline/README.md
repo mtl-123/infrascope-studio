@@ -7,8 +7,9 @@
 将整个 tar.gz 复制到 Linux x86_64，解压后进入目录：
 
 ```bash
-tar -xzf infrascope-offline-*.tar.gz
-cd infrascope-offline-*
+mkdir infrascope
+tar -xzf infrascope-offline-*.tar.gz -C infrascope --strip-components=1
+cd infrascope
 sha256sum -c SHA256SUMS
 ./start.sh --host 你的服务器IP或域名
 ```

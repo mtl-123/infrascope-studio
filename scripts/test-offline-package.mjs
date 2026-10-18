@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFile, writeFile, mkdir, mkdtemp, access, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, mkdtemp, access, stat, readdir } from 'node:fs/promises';
 import { randomBytes, createHash } from 'node:crypto';
 import { request } from 'node:https';
 import { join } from 'node:path';
@@ -35,6 +35,7 @@ try{
  const keysAfter=createHash('sha256').update(await readFile(join(bundle,'config/app.env'))).update(await readFile(join(bundle,'config/admin.json'))).digest('hex');if(keysBefore!==keysAfter)throw Error('Secrets were changed during restart');
  summary.checks.push('stop/start preserved database, administrator and AES key');
  if((await stat(join(bundle,'logs/app/service.log'))).size===0)throw Error('Application log is empty');
+ const postgresLogs=await readdir(join(bundle,'logs/postgres'));if(!postgresLogs.some(name=>name.endsWith('.log')))throw Error('PostgreSQL file log was not created');
  const ids=run('docker',['compose','--env-file','config/deploy.env','-f','docker-compose.yml','ps','-q'],{cwd:bundle,capture:true}).split(/\s+/).filter(Boolean);
  for(const id of ids){const item=JSON.parse(run('docker',['inspect',id],{capture:true}))[0];for(const mount of item.Mounts){if(mount.Type==='tmpfs'&&mount.Destination==='/tmp')continue;if(mount.Type!=='bind'||!mount.Source.startsWith(bundle+'/'))throw Error('Runtime state is outside the deployment directory');}}
  summary.checks.push('configuration, data and log mounts are only under the current directory');

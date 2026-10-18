@@ -16,6 +16,9 @@ on:
       - scripts/package-offline.mjs
       - scripts/test-offline-package.mjs
       - .github/workflows/offline-package.yml
+concurrency:
+  group: offline-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
