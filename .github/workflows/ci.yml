@@ -1,0 +1,44 @@
+name: Build and verify
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: remote-access/go.mod
+          cache-dependency-path: remote-access/go.sum
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:native-pg
+      - run: npm run test:service-smoke
+  telemetry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal
+      - run: cargo test --manifest-path telemetry-agent/Cargo.toml --locked
+      - run: cargo build --manifest-path telemetry-agent/Cargo.toml --release --locked
+      - run: python3 scripts/package-telemetry.py --platform native
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm run setup
+      - run: npm run up
+      - run: node scripts/smoke-compose.mjs
+      - if: always()
+        run: npm run down

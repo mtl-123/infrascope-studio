@@ -144,7 +144,8 @@ func (h *harness) setupAsset() {
 	for _, proto := range []string{"ssh", "sftp", "rdp"} {
 		eps = append(eps, map[string]any{"protocol": proto, "host": h.host, "port": h.port, "gatewayId": h.a.Config.GatewayID})
 	}
-	v := h.request(h.admin, "POST", "/assets", map[string]any{"name": "Integration target", "kind": "virtual", "osFamily": "linux", "groupName": "isolated-tests", "tags": []string{}, "metadata": map[string]string{}, "enabled": true, "endpoints": eps}, 200)
+	person := h.request(h.admin, "POST", "/people", map[string]any{"displayName": "Test asset claimant", "department": "Isolated tests", "contactType": "internal", "enabled": true}, 200)
+	v := h.request(h.admin, "POST", "/assets", map[string]any{"name": "Integration target", "kind": "virtual", "osFamily": "linux", "groupName": "isolated-tests", "tags": []string{}, "metadata": map[string]string{}, "enabled": true, "endpoints": eps, "ownership": map[string]any{"state": "pending", "claimantId": person["id"]}}, 200)
 	h.asset = v["id"].(string)
 	v = h.request(h.admin, "POST", "/assets/"+h.asset+"/accounts", map[string]any{"name": "test-os-account", "username": "tester", "authType": "password", "protocols": []string{"ssh", "sftp", "rdp"}, "enabled": true}, 200)
 	h.account = v["id"].(string)

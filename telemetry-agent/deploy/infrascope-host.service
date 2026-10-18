@@ -1,0 +1,23 @@
+[Unit]
+Description=InfraScope host telemetry agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=infrascope-agent
+Group=infrascope-agent
+WorkingDirectory=/var/lib/infrascope-host
+ExecStart=/opt/infrascope/bin/infrascope-agent run --config /etc/infrascope/host.toml
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=90s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/infrascope-host
+
+[Install]
+WantedBy=multi-user.target

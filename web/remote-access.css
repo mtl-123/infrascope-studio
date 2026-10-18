@@ -1,0 +1,418 @@
+.ra {
+  color: var(--ink);
+  font-size: 13px;
+}
+.ra .page-heading {
+  margin-bottom: 22px;
+}
+.ra p {
+  line-height: 1.7;
+}
+.ra .ra-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.ra button,
+.ra input,
+.ra select,
+.ra textarea {
+  font: inherit;
+}
+.ra button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  padding: 9px 13px;
+  border-radius: 8px;
+}
+.ra button.primary,
+.ra button.selected {
+  background: var(--brand);
+  color: white;
+}
+.ra button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ra input,
+.ra select,
+.ra textarea {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  padding: 10px;
+  border-radius: 7px;
+  max-width: 100%;
+}
+.ra input:not([type="checkbox"]),
+.ra textarea {
+  width: 100%;
+}
+.ra textarea {
+  min-height: 140px;
+  font-family: ui-monospace, monospace;
+}
+.ra label {
+  display: block;
+  line-height: 1.7;
+  margin: 8px 0;
+}
+.ra .ra-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 12px 0;
+  overflow: auto;
+}
+.ra .ra-login {
+  max-width: 440px;
+  margin: 45px auto;
+}
+.ra small,
+.ra .muted {
+  color: var(--sub);
+}
+.ra .ra-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.ra .ra-asset {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.ra .ra-icon {
+  background: var(--soft);
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 20px;
+}
+.ra .ra-status {
+  background: var(--soft);
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+}
+.ra .ra-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 14px;
+}
+.ra .ra-details div {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.ra .ra-details dt {
+  color: var(--sub);
+  margin-bottom: 5px;
+}
+.ra .ra-details dd {
+  margin: 0;
+}
+.ra select[multiple] {
+  width: 100%;
+  min-width: 0;
+}
+.ra #ra-asset-search {
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.ra table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ra td,
+.ra th {
+  padding: 12px 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 12px;
+}
+.ra th {
+  color: var(--sub);
+  font-weight: 500;
+}
+.ra code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.ra .ra-error {
+  color: var(--bad);
+  white-space: pre-wrap;
+}
+.ra .ra-tabs {
+  display: flex;
+  gap: 7px;
+  overflow: auto;
+  margin-bottom: 10px;
+}
+.ra .ra-tabs button {
+  white-space: nowrap;
+}
+.ra .ra-panes {
+  display: flex;
+  gap: 10px;
+  min-height: 440px;
+}
+.ra .ra-panes.vertical {
+  flex-direction: column;
+}
+.ra .ra-pane {
+  flex: 1;
+  min-width: 220px;
+  min-height: 300px;
+  overflow: hidden;
+  resize: both;
+  background: #101b25;
+  border: 1px solid #314356;
+  border-radius: 10px;
+  color: #d8e6ed;
+  display: flex;
+  flex-direction: column;
+}
+.ra .ra-pane.active {
+  border-color: #59b8a1;
+}
+.ra .ra-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px;
+  background: #1b2a36;
+  font-size: 11px;
+}
+.ra .ra-pane-head button {
+  padding: 3px 7px;
+  background: #263949;
+  color: #d8e6ed;
+  border-color: #3a5060;
+}
+.ra .ra-terminal {
+  flex: 1;
+  padding: 8px;
+  min-height: 260px;
+  height: 360px;
+  overflow: hidden;
+}
+.ra .ra-terminal .xterm {
+  height: 100%;
+}
+.ra .ra-terminal .xterm-viewport {
+  scrollbar-width: thin;
+}
+.ra dialog {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 720px;
+  width: 94vw;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow);
+}
+.ra dialog::backdrop {
+  background: #08172690;
+}
+.ra dialog h3 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+.ra .ra-endpoint {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 12px 0;
+  padding: 0 14px 12px;
+  min-width: 0;
+}
+.ra .ra-endpoint .ra-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(70px, 0.7fr) minmax(100px, 1.3fr);
+}
+.ra .ra-endpoint input:disabled { opacity: 0.45; }
+.ra .ra-ownership {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 16px 0;
+  min-width: 0;
+}
+.ra .ra-ownership select {
+  width: 100%;
+  min-width: 0;
+}
+.ra .ra-ownership select[multiple] { min-height: 130px; }
+.ra .ra-people-search {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ra .ra-people-search label { flex: 1 1 220px; }
+.ra .ra-people-search button { margin-bottom: 8px; }
+.ra .ra-warning {
+  color: var(--ink);
+  background: var(--soft);
+  border-left: 3px solid var(--brand);
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+.ra .ra-warning:empty { display: none; }
+.ra td small { display: block; margin-top: 4px; }
+@media (max-width: 520px) {
+  .ra dialog { padding: 16px; }
+  .ra .ra-grid, .ra .ra-endpoint .ra-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.ra .ra-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ra .ra-checks label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.ra .ra-file-path {
+  flex: 1;
+  min-width: 200px;
+}
+.ra .ra-drop {
+  padding: 18px;
+  border: 1px dashed var(--brand);
+  border-radius: 9px;
+  color: var(--sub);
+  text-align: center;
+}
+.ra .ra-progress {
+  width: 160px;
+  height: 5px;
+  accent-color: var(--brand);
+}
+.ra #ra-message {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  padding: 10px;
+  background: var(--soft);
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+.ra #ra-message:empty {
+  display: none;
+}
+.ra .ra-empty {
+  padding: 45px;
+  text-align: center;
+  color: var(--sub);
+}
+.ra .ra-split {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 18px;
+}
+.ra .ra-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ra button:focus-visible,
+.ra input:focus-visible,
+.ra select:focus-visible,
+.ra textarea:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.ra pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ra .ra-import-rows {
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.ra .ra-import-rows th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+.ra .ra-import-rows td {
+  max-width: 270px;
+  overflow-wrap: anywhere;
+}
+.ra [hidden] {
+  display: none !important;
+}
+@media (max-width: 800px) {
+  .ra .ra-panes {
+    flex-direction: column;
+  }
+  .ra .ra-split {
+    grid-template-columns: 1fr;
+  }
+  .ra .ra-links {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .ra .ra-asset {
+    flex-wrap: wrap;
+  }
+  .ra .ra-pane {
+    width: 100% !important;
+  }
+  .ra table {
+    min-width: 650px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ra * {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.ra .ra-remote-dialog {
+  width: min(1080px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+.ra .ra-telemetry-table { max-width: 100%; overflow-x: auto; margin: 16px 0; }
+.ra [data-telemetry] { min-width: 0; overflow-wrap: anywhere; }
+.ra [data-telemetry] summary { cursor: pointer; padding: 6px 0; }
+.ra #ra-remote-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.ra .ra-remote-protocol {
+  border: 1px solid var(--line, #d7dfdc);
+  border-radius: 10px;
+  padding: 16px;
+  min-width: 0;
+}
+.ra .ra-remote-protocol h4 { margin-top: 0; }
+.ra .ra-remote-protocol code,
+.ra .ra-remote-account small { display: block; overflow-wrap: anywhere; }
+.ra .ra-remote-account {
+  border-top: 1px solid var(--line, #d7dfdc);
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.ra #ra-remote-cards > p,
+.ra #ra-remote-cards > button { grid-column: 1 / -1; }
+@media (max-width: 850px) {
+  .ra #ra-remote-cards { grid-template-columns: minmax(0, 1fr); }
+}

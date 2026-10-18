@@ -2,6 +2,12 @@
 
 本目录属于 InfraScope 原项目，不是独立的监控演示。连接器必须在操作者自己的交互式 Windows 登录会话中运行。默认 controlled 模式，只接受当前平台登录绑定的授权任务。中央 Linux/Windows Web 服务器不会替用户运行 mstsc。
 
+## Windows 快捷启动器
+
+运行仓库 `scripts/start-windows-quick-launcher.ps1` 启动常驻托盘，默认 Ctrl+Alt+Space 呼出搜索，Esc隐藏，Enter/双击明确启动所选连接。先启动并配对本连接器。目录来自平台数据库中的当前有效授权，不是本地CSV或另存密码库；新登录/绑定失效时提示重新登录配对。
+
+本机 `GET /api/launcher/catalog?q=...` 与 `POST /api/launcher/open` 仍要求严格回环Host/Origin/fetch-site和X-Pulse-Token。open只接受assetId/accountId/protocol/userId/confirmed/idempotencyKey，不接受host/password命令参数；配对用户不符409。后端以签名设备、绑定会话和真实grant验证，桌面从不获得数据库凭据。RDP启动进程不代表远端认证；SSH/SFTP返回只含稳定引用的同源HTTPS链接并由浏览器再次校验身份。
+
 ## 启动与配对
 
 前提：Windows 自带 Windows PowerShell 5.1、mstsc.exe、rdpsign.exe，Node.js 22+。本次 Node 语法和 HTTP 测试运行在 Linux Node 24.19.0，Windows 执行尚未验收。运行无需业务 npm 依赖。

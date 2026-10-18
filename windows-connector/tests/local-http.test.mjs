@@ -38,6 +38,7 @@ test("real HTTP API protects localhost and reports unsupported platform", async 
       page.headers["content-security-policy"],
       /frame-ancestors 'none'/,
     );
+    assert.equal(page.headers["x-frame-options"], "DENY");
     assert.equal(
       (await req("/api/local-token", { Host: "evil.example:44173" })).status,
       403,
@@ -48,12 +49,29 @@ test("real HTTP API protects localhost and reports unsupported platform", async 
       403,
     );
     assert.equal((await req("/api/status")).status, 403);
+    const navigation = {
+      "Sec-Fetch-Site": "cross-site",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Dest": "document",
+    };
+    assert.equal((await req("/", navigation)).status, 200);
+    assert.equal((await req("/index.html", navigation, "HEAD")).status, 200);
+    assert.equal((await req("/", { ...navigation, "Sec-Fetch-Site": "same-site" })).status, 200);
+    assert.equal((await req("/api/local-token", navigation)).status, 403);
+    assert.equal((await req("/api/status", navigation)).status, 403);
+    assert.equal((await req("/app.js", navigation)).status, 403);
+    assert.equal((await req("/", { ...navigation, "Sec-Fetch-Dest": "iframe" })).status, 403);
+    assert.equal((await req("/", { ...navigation, "Sec-Fetch-Mode": "no-cors" })).status, 403);
+    assert.equal((await req("/", { ...navigation, Origin: "https://127.0.0.1:18443" })).status, 403);
+    assert.equal((await req("/", navigation, "POST")).status, 403);
+    assert.equal((await req("/app.js", { "Sec-Fetch-Site": "same-origin" })).status, 200);
     const token = JSON.parse((await req("/api/local-token")).data);
     assert.equal(typeof token.token, "string");
     const status = await req("/api/status", { "X-Pulse-Token": token.token });
     assert.equal(status.status, 200);
     assert.equal(JSON.parse(status.data).mode, "controlled");
     assert(!JSON.stringify(JSON.parse(status.data)).includes(token.token));
+    assert.equal((await req("/api/status", { ...navigation, "X-Pulse-Token": token.token })).status, 403);
     if (process.platform !== "win32") {
       assert.equal(token.available, false);
       assert.equal(

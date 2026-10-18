@@ -9,4 +9,29 @@ remote-access/test-results/
 *.pfx
 *.key
 !**/fixtures/**
+.dev-tools/
+.local-dev/
+__pycache__/
+telemetry-agent/target/
+release/
 
+
+# Generated public client archive and current local public certificate
+dist/downloads/
+
+# Source lives in web/; generated service/frontend/release outputs stay local.
+dist/
+build/
+.runtime/
+.github-export/
+# Legacy Sites identity and raw local QA evidence are not application source.
+.openai/
+docs/implementation/evidence/
+docs/implementation/matrix-updates.json
+*.dump
+*.sql.gz
+*.sqlite*
+*.p12
+*.pem
+*.crt
+!**/fixtures/**

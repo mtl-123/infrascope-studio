@@ -1,0 +1,16 @@
+# InfraScope telemetry 0.1.0. No secrets belong in this file.
+server_url = "https://127.0.0.1:18443"
+state_dir = "./docker-state"
+# ca_cert = "./infrascope-ca.pem"
+allow_insecure_loopback = false
+interval_seconds = 5
+request_timeout_seconds = 15
+max_queue_bytes = 67108864
+max_queue_files = 10000
+
+[docker]
+endpoint = "unix:///var/run/docker.sock"
+timeout_seconds = 10
+max_containers = 100
+# ca_file = "./docker-ca.pem"
+# client_identity_file = "./docker-client-cert-and-key.pem"

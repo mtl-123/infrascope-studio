@@ -1,0 +1,15 @@
+# Only source and lock files enter the image build context.
+*
+!Dockerfile
+!package.json
+!package-lock.json
+!web/
+!web/**
+!remote-access/
+!remote-access/**
+remote-access/bin/
+remote-access/test-results/
+remote-access/.env
+!scripts/
+!scripts/build.mjs
+!scripts/vendor-terminal.mjs

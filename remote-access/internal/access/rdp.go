@@ -254,10 +254,19 @@ func (a *App) deviceRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	switch pathName := r.PathValue("operation"); pathName {
+	case "catalog":
+		if err := a.launcherCatalog(w, r, d, body); err != nil {
+			errorOut(w, err)
+		}
+	case "quick-launch":
+		if err := a.launcherQuickLaunch(w, r, d, body); err != nil {
+			errorOut(w, err)
+		}
 	case "poll":
 		var in struct {
 			Capabilities    map[string]any `json:"capabilities"`
 			WindowsUserHash string         `json:"windowsUserHash"`
+			LaunchID        string         `json:"launchId,omitempty"`
 		}
 		if strictJSON(body, &in) != nil || in.WindowsUserHash != d.WindowsUserHash {
 			errorOut(w, fail(403, "windows_user_mismatch", "Windows 交互用户不匹配"))
@@ -267,12 +276,16 @@ func (a *App) deviceRoute(w http.ResponseWriter, r *http.Request) {
 			errorOut(w, fail(413, "capabilities_limit", "能力信息过大"))
 			return
 		}
+		if in.LaunchID != "" && !bounded(in.LaunchID, 100) {
+			errorOut(w, fail(400, "launch_reference", "启动任务引用无效"))
+			return
+		}
 		_, e = a.store(ctx).Exec(ctx, "UPDATE ra_connectors SET last_seen=now(),capabilities=$1 WHERE id=$2", marshal(in.Capabilities), d.ID)
 		if e != nil {
 			errorOut(w, e)
 			return
 		}
-		launches, e := a.list(ctx, `SELECT l.id,l.asset_id,l.account_id,l.options,l.expires_at,a.name AS asset_name,x.name AS account_name,x.username,e.host,e.port FROM ra_rdp_launches l JOIN ra_assets a ON a.id=l.asset_id JOIN ra_accounts x ON x.id=l.account_id JOIN ra_endpoints e ON e.asset_id=l.asset_id AND e.protocol='rdp' WHERE l.connector_id=$1 AND l.state='queued' AND l.expires_at>now() AND l.consumed_at IS NULL ORDER BY l.created_at LIMIT 10`, d.ID)
+		launches, e := a.list(ctx, `SELECT l.id,l.asset_id,l.account_id,l.options,l.expires_at,a.name AS asset_name,x.name AS account_name,x.username,e.host,e.port FROM ra_rdp_launches l JOIN ra_assets a ON a.id=l.asset_id JOIN ra_accounts x ON x.id=l.account_id JOIN ra_endpoints e ON e.asset_id=l.asset_id AND e.protocol='rdp' WHERE l.connector_id=$1 AND ($2='' OR l.id=$2) AND l.state='queued' AND l.expires_at>now() AND l.consumed_at IS NULL ORDER BY l.created_at LIMIT 10`, d.ID, in.LaunchID)
 		if e != nil {
 			errorOut(w, e)
 			return

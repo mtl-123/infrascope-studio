@@ -19,7 +19,22 @@ $mstsc=Join-Path $env:SystemRoot 'System32\mstsc.exe';$rdpsign=Join-Path $env:Sy
 function Emit($v){[Console]::Out.WriteLine(($v|ConvertTo-Json -Compress -Depth 6));[Console]::Out.Flush()}
 if($SelfTest){Emit @{ok=$true;credentialApi=$true;mstsc=(Test-Path -LiteralPath $mstsc);rdpsign=(Test-Path -LiteralPath $rdpsign)};exit 0}
 function Read-Cred([string]$target){$ptr=[IntPtr]::Zero;if([InfraCredential]::Read($target,1,0,[ref]$ptr)){try{$c=[Runtime.InteropServices.Marshal]::PtrToStructure($ptr,[type][InfraCredential+CREDENTIAL]);return @{exists=$true;comment=$c.Comment;username=$c.UserName;lastWritten=($c.LastWritten.dwHighDateTime.ToString('X8')+$c.LastWritten.dwLowDateTime.ToString('X8'))}}finally{[InfraCredential]::CredFree($ptr)}};$err=[Runtime.InteropServices.Marshal]::GetLastWin32Error();if($err -eq 1168){return @{exists=$false}};throw 'Cannot safely read Credential Manager'}
-function Private-Directory([string]$p){if(-not(Test-Path -LiteralPath $p)){New-Item -ItemType Directory -Path $p -Force|Out-Null};$acl=Get-Acl -LiteralPath $p;$acl.SetAccessRuleProtection($true,$false);$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User;$rule=New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow');$acl.SetAccessRule($rule);Set-Acl -LiteralPath $p -AclObject $acl}
+function Private-Directory([string]$p){
+ if(-not(Test-Path -LiteralPath $p)){New-Item -ItemType Directory -Path $p -Force|Out-Null}
+ # A fresh descriptor persists only its changed DACL, not owner or privileged SACL sections.
+ $acl=New-Object Security.AccessControl.DirectorySecurity
+ $acl.SetAccessRuleProtection($true,$false)
+ $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+ $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
+ [IO.Directory]::SetAccessControl($p,$acl)
+}
+function Private-File([string]$p){
+ $acl=New-Object Security.AccessControl.FileSecurity
+ $acl.SetAccessRuleProtection($true,$false)
+ $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+ $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','Allow')))
+ [IO.File]::SetAccessControl($p,$acl)
+}
 $leaseDir=Join-Path $env:LOCALAPPDATA 'InfraScope\leases';Private-Directory $leaseDir
 function Cleanup-Lease($lease){
  $ok=$true
@@ -96,7 +111,7 @@ try {
  'bitmapcachepersistenable:i:1'
  )
  [IO.File]::WriteAllLines($file,$lines,[Text.Encoding]::Unicode)
- $fileAcl=Get-Acl -LiteralPath $file;$fileAcl.SetAccessRuleProtection($true,$false);$fileSid=[Security.Principal.WindowsIdentity]::GetCurrent().User;$fileAcl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($fileSid,'FullControl','Allow')));Set-Acl -LiteralPath $file -AclObject $fileAcl
+ Private-File $file
  $result=& $rdpsign ('/'+$status.signingHash) $status.certificateThumbprint /q $file 2>&1
  if($LASTEXITCODE -ne 0){throw 'rdpsign failed; unsigned RDP file was not launched'}
  $p=Start-Process -FilePath $mstsc -ArgumentList ('"'+$file+'"') -PassThru

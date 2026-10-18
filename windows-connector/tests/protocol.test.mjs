@@ -98,3 +98,34 @@ test("loopback, DNS rebinding, Origin and token isolation", () => {
     deviceCanonical("POST", "/b", "1", "nonce", "{}"),
   );
 });
+test("only top-level public shell navigation may arrive from another site", () => {
+  const req = {
+    method: "GET",
+    url: "/",
+    socket: { remoteAddress: "127.0.0.1" },
+    headers: {
+      host: "127.0.0.1:4173",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "document",
+    },
+  };
+  assert(secureLocalRequest(req, 4173));
+  assert(secureLocalRequest({ ...req, method: "HEAD", url: "/index.html" }, 4173));
+  assert(secureLocalRequest({ ...req, headers: { ...req.headers, "sec-fetch-site": "same-site" } }, 4173));
+  for (const url of ["/api/local-token", "/api/status", "/api/pair", "/app.js", "/styles.css", "/index.html?api=1"]) {
+    assert(!secureLocalRequest({ ...req, url }, 4173));
+  }
+  for (const headers of [
+    { host: "attacker.example:4173" },
+    { origin: "https://127.0.0.1:18443" },
+    { origin: "null" },
+    { "sec-fetch-dest": "iframe" },
+    { "sec-fetch-dest": "script" },
+    { "sec-fetch-mode": "cors" },
+    { "sec-fetch-mode": "no-cors" },
+    { "sec-fetch-site": "invalid" },
+  ]) assert(!secureLocalRequest({ ...req, headers: { ...req.headers, ...headers } }, 4173));
+  assert(!secureLocalRequest({ ...req, method: "POST" }, 4173));
+  assert(!secureLocalRequest({ ...req, socket: { remoteAddress: "192.0.2.1" } }, 4173));
+});

@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-18",
+  "cleanCheckout": true,
+  "sourceTree": "01e28b6aed9ca3ecee8d17080cbb2bfe07038b20",
+  "npmCi": "PASS",
+  "serviceBuild": "PASS",
+  "nodeTests": 169,
+  "connectorNodeTests": 11,
+  "legacyTestScripts": 6,
+  "pythonGateTests": 4,
+  "requirementCount": 187,
+  "requirementsVerified": 0,
+  "rustTests": 22,
+  "linuxPackaging": "PASS",
+  "serviceActualHTTPSPGSmoke": "PASS",
+  "composeConfig": "PASS",
+  "setupRetainsSecrets": "PASS",
+  "nativePostgres": {
+    "status": "PASS",
+    "tests": {
+      "pass": 90,
+      "fail": 0,
+      "skip": 0,
+      "failures": [],
+      "ok": true
+    }
+  },
+  "dockerImageBuild": "NOT_VERIFIED: local registry HTTPS timeout; CI workflow provided",
+  "privateDataPublished": false,
+  "rawEvidence": "local only"
+}

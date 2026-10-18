@@ -113,9 +113,135 @@ export function secureLocalRequest(req, port) {
   const origin = req.headers.origin;
   if (origin && !hosts.some((h) => origin === `http://${h}`)) return false;
   const site = req.headers["sec-fetch-site"];
-  if (site && !["same-origin", "none"].includes(site)) return false;
+  if (site && !["same-origin", "none"].includes(site)) {
+    // Opening the public shell from the platform must not relax any API guard.
+    const shellNavigation =
+      !origin &&
+      ["same-site", "cross-site"].includes(site) &&
+      ["GET", "HEAD"].includes(req.method) &&
+      ["/", "/index.html"].includes(req.url) &&
+      req.headers["sec-fetch-mode"] === "navigate" &&
+      req.headers["sec-fetch-dest"] === "document";
+    if (!shellNavigation) return false;
+  }
   return true;
 }
 export function deviceCanonical(method, path, time, nonce, body) {
   return [method, path, time, nonce, sha256(body)].join("\n");
+}
+const launcherId = /^[A-Za-z0-9_-]{1,120}$/;
+export function validateLauncherQuery(query) {
+  if (
+    typeof query !== "string" ||
+    Buffer.byteLength(query, "utf8") > 200 ||
+    /[\x00-\x1f\x7f]/.test(query)
+  )
+    throw Error("Invalid launcher query");
+  return query.trim();
+}
+export function validateLauncherRequest(body) {
+  const fields = [
+    "assetId",
+    "accountId",
+    "protocol",
+    "confirmed",
+    "idempotencyKey",
+    "userId",
+  ];
+  if (
+    !body ||
+    typeof body !== "object" ||
+    Array.isArray(body) ||
+    Object.keys(body).some((key) => !fields.includes(key)) ||
+    fields.some((key) => !Object.hasOwn(body, key)) ||
+    ![body.assetId, body.accountId, body.idempotencyKey, body.userId].every(
+      (value) => typeof value === "string" && launcherId.test(value),
+    ) ||
+    !["ssh", "sftp", "rdp"].includes(body.protocol) ||
+    body.confirmed !== true
+  )
+    throw Error("Invalid launcher request; explicit local confirmation is required");
+  return Object.fromEntries(fields.map((field) => [field, body[field]]));
+}
+export function launcherPayload(body, pairedUserId) {
+  const { userId, ...payload } = validateLauncherRequest(body);
+  if (userId !== pairedUserId)
+    throw Object.assign(Error("The paired user changed; refresh the connection catalog before opening a target"), {
+      status: 409,
+      code: "paired_user_changed",
+    });
+  return payload;
+}
+export function validateLauncherURL(value, platform, request) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw Error("Invalid launcher workspace URL");
+  }
+  const keys = [...url.searchParams.keys()];
+  if (
+    typeof value !== "string" ||
+    value.length > 1024 ||
+    url.origin !== approvedOrigin(platform) ||
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.hash ||
+    url.pathname !== "/remote-workspace.html" ||
+    keys.length !== 4 ||
+    new Set(keys).size !== 4 ||
+    keys.some((key) => !["assetId", "accountId", "protocol", "userId"].includes(key)) ||
+    typeof request.userId !== "string" ||
+    !launcherId.test(request.userId) ||
+    !["ssh", "sftp"].includes(request.protocol) ||
+    ["assetId", "accountId", "protocol", "userId"].some(
+      (key) => url.searchParams.get(key) !== request[key],
+    )
+  )
+    throw Error("Invalid launcher workspace URL");
+  return url.href;
+}
+export function launcherCatalog(result, userId) {
+  if (
+    !result ||
+    !Array.isArray(result.items) ||
+    result.items.length > 500 ||
+    typeof result.truncated !== "boolean" ||
+    typeof userId !== "string" ||
+    !launcherId.test(userId) ||
+    result.userId !== userId
+  )
+    throw Error("Invalid launcher catalog response");
+  const fields = [
+    "assetId",
+    "assetName",
+    "accountId",
+    "accountName",
+    "username",
+    "osFamily",
+    "protocol",
+    "host",
+    "port",
+  ];
+  const items = result.items.map((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      ![item.assetId, item.accountId].every(
+        (value) => typeof value === "string" && launcherId.test(value),
+      ) ||
+      !["ssh", "sftp", "rdp"].includes(item.protocol) ||
+      !Number.isInteger(item.port) ||
+      item.port < 1 ||
+      item.port > 65535 ||
+      fields.filter((key) => key !== "port").some(
+        (key) => typeof item[key] !== "string" || item[key].length > 512 || /[\x00-\x1f\x7f]/.test(item[key]),
+      )
+    )
+      throw Error("Invalid launcher catalog item");
+    // Only reviewed display metadata crosses into the native search window.
+    return Object.fromEntries(fields.map((field) => [field, item[field]]));
+  });
+  return { items, truncated: result.truncated, userId };
 }

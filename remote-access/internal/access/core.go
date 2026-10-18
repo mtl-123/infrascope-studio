@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -39,6 +40,7 @@ type Config struct {
 	Bandwidth                                                                     int64
 	Enabled, LoopbackTest                                                         bool
 	Listen, Origin, StaticDir, Workspace, GatewayID, DatabaseURL, ActiveKey       string
+	TLSCert, TLSKey, HTTPRedirectListen                                           string
 	Keys                                                                          map[string][]byte
 	Allowed                                                                       []netip.Prefix
 	SessionHours, MaxSessions, MaxTransfers, Idle, MaxDuration, Grace, RevokePoll int
@@ -46,12 +48,30 @@ type Config struct {
 
 func LoadConfig() (Config, error) {
 	c := Config{AllowTemporarySSH: os.Getenv("REMOTE_ALLOW_TEMPORARY_SSH_CREDENTIALS") == "true", MaxSFTP: numenv("REMOTE_MAX_SFTP_CHANNELS", 32), MaxSSH: numenv("REMOTE_MAX_SSH_GATEWAY", 128), Bandwidth: int64(numenv("REMOTE_BANDWIDTH_BYTES_PER_USER", 16777216)), Enabled: os.Getenv("REMOTE_ENABLED") == "true", LoopbackTest: os.Getenv("REMOTE_LOOPBACK_TEST") == "true", Listen: env("REMOTE_LISTEN", "127.0.0.1:8080"), Origin: env("REMOTE_PUBLIC_ORIGIN", ""), StaticDir: env("REMOTE_STATIC_DIR", "../dist"), Workspace: env("REMOTE_WORKSPACE", "default"), GatewayID: env("REMOTE_GATEWAY_ID", "gateway-1"), DatabaseURL: os.Getenv("DATABASE_URL"), ActiveKey: env("REMOTE_ACTIVE_KEY_VERSION", "key-1"), Keys: map[string][]byte{}, SessionHours: numenv("REMOTE_SESSION_HOURS", 8), MaxSessions: numenv("REMOTE_MAX_SESSIONS_PER_USER", 8), MaxTransfers: numenv("REMOTE_MAX_TRANSFERS_PER_USER", 3), Idle: numenv("REMOTE_SSH_IDLE_SECONDS", 1800), MaxDuration: numenv("REMOTE_SSH_MAX_SECONDS", 28800), Grace: numenv("REMOTE_SSH_REATTACH_SECONDS", 60), RevokePoll: numenv("REMOTE_REVOKE_POLL_SECONDS", 5)}
-	if !c.Enabled && (len(os.Args) == 1 || os.Args[1] == "serve") {
+	c.TLSCert, c.TLSKey, c.HTTPRedirectListen = os.Getenv("REMOTE_TLS_CERT"), os.Getenv("REMOTE_TLS_KEY"), os.Getenv("REMOTE_HTTP_REDIRECT_LISTEN")
+	if (c.TLSCert == "") != (c.TLSKey == "") {
+		return c, errors.New("REMOTE_TLS_CERT and REMOTE_TLS_KEY must be configured together")
+	}
+	if c.TLSCert != "" {
+		if _, err := tls.LoadX509KeyPair(c.TLSCert, c.TLSKey); err != nil {
+			return c, fmt.Errorf("load server TLS certificate: %w", err)
+		}
+	}
+	if c.HTTPRedirectListen != "" {
+		host, _, err := net.SplitHostPort(c.HTTPRedirectListen)
+		if c.TLSCert == "" || err != nil || !loopback(host) || c.HTTPRedirectListen == c.Listen {
+			return c, errors.New("HTTP redirect requires native TLS and a separate loopback listener")
+		}
+	}
+	if !c.Enabled && c.TLSCert == "" && (len(os.Args) == 1 || os.Args[1] == "serve") {
 		return c, nil
 	}
 	u, e := url.Parse(c.Origin)
-	if e != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.User != nil {
+	if e != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil || u.Opaque != "" {
 		return c, errors.New("REMOTE_PUBLIC_ORIGIN must be an exact HTTPS origin")
+	}
+	if c.TLSCert != "" && u.Scheme != "https" {
+		return c, errors.New("native TLS requires an HTTPS public origin")
 	}
 	host, _, e := net.SplitHostPort(c.Listen)
 	if e != nil {
@@ -59,6 +79,9 @@ func LoadConfig() (Config, error) {
 	}
 	if u.Scheme != "https" && !(c.LoopbackTest && u.Scheme == "http" && loopback(host) && loopback(u.Hostname())) {
 		return c, errors.New("HTTPS is mandatory outside loopback tests")
+	}
+	if !c.Enabled && (len(os.Args) == 1 || os.Args[1] == "serve") {
+		return c, nil
 	}
 	if c.DatabaseURL == "" {
 		return c, errors.New("DATABASE_URL required")
@@ -287,7 +310,7 @@ var rolePerms = map[string][]string{
 	"admin":         {"user.manage", "group.manage", "asset.view", "asset.manage", "asset.test", "remoteAccount.view", "remoteAccount.manage", "grant.view", "grant.manage", "session.viewAll", "session.terminate", "audit.read", "connector.pair", "connector.revoke"},
 	"asset_manager": {"asset.view", "asset.manage", "asset.test", "remoteAccount.view", "remoteAccount.manage", "grant.view", "grant.manage", "connector.pair", "connector.revoke"},
 	"operator":      {"asset.view", "remoteAccount.view", "connector.pair", "connector.revoke"},
-	"auditor":       {"audit.read"},
+	"auditor":       {"audit.read", "asset.view"},
 }
 
 func has(u *User, p string) bool { return contains(rolePerms[u.Role], p) }
@@ -484,6 +507,10 @@ func (a *App) target(ctx context.Context, ep Endpoint) (string, error) {
 	if ep.Gateway != a.Config.GatewayID {
 		return "", gatewayError(ep.Gateway)
 	}
+	exactPermit, err := a.exactEndpointPermit(ctx, ep)
+	if err != nil {
+		return "", err
+	}
 	ips, e := net.DefaultResolver.LookupNetIP(ctx, "ip", ep.Host)
 	if e != nil || len(ips) == 0 {
 		return "", fail(502, "dns_failure", "目标名称解析失败")
@@ -493,7 +520,7 @@ func (a *App) target(ctx context.Context, ep Endpoint) (string, error) {
 		if ip.IsLinkLocalUnicast() || ip.IsMulticast() || ip.IsUnspecified() {
 			return "", fail(403, "egress_denied", "目标地址被网关策略阻止")
 		}
-		allowed := false
+		allowed := exactPermit
 		for _, p := range a.Config.Allowed {
 			if p.Contains(ip) {
 				allowed = true
@@ -503,7 +530,10 @@ func (a *App) target(ctx context.Context, ep Endpoint) (string, error) {
 			return "", fail(403, "egress_denied", "目标不在明确允许的网段中")
 		}
 		if !a.Config.LoopbackTest {
-			addrs, _ := net.InterfaceAddrs()
+			addrs, err := net.InterfaceAddrs()
+			if err != nil {
+				return "", fail(503, "egress_check_unavailable", "无法检查网关自身地址，暂不发起连接")
+			}
 			for _, addr := range addrs {
 				if local, _, err := net.ParseCIDR(addr.String()); err == nil && local.String() == ip.String() {
 					return "", fail(403, "egress_denied", "禁止访问网关自身地址")

@@ -1,0 +1,18 @@
+# InfraScope telemetry 0.1.0. No secrets belong in this file.
+server_url = "https://127.0.0.1:18443"
+state_dir = "./pve-state"
+# ca_cert = "./infrascope-ca.pem"
+allow_insecure_loopback = false
+interval_seconds = 5
+request_timeout_seconds = 15
+max_queue_bytes = 67108864
+max_queue_files = 10000
+
+[pve]
+base_url = "https://pve.example.invalid:8006"
+token_env = "INFRASCOPE_PVE_TOKEN"
+# Token value: PVEAPIToken=user@realm!tokenid=secret
+# ca_file = "./pve-ca.pem"
+node_filter = []
+timeout_seconds = 10
+max_guests = 100

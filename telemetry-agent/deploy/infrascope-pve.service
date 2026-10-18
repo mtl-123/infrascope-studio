@@ -1,0 +1,24 @@
+[Unit]
+Description=InfraScope Proxmox VE read-only telemetry collector
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=infrascope-agent
+Group=infrascope-agent
+WorkingDirectory=/var/lib/infrascope-pve
+EnvironmentFile=/etc/infrascope/pve-token.env
+ExecStart=/opt/infrascope/bin/infrascope-pve-collector run --config /etc/infrascope/pve.toml
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=90s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/infrascope-pve
+
+[Install]
+WantedBy=multi-user.target

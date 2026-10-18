@@ -1,0 +1,51 @@
+name: ${COMPOSE_PROJECT_NAME:-infrascope}
+services:
+  db:
+    image: postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_DB: infrascope
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run npm run setup first}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d infrascope"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks: [database]
+  app:
+    build: .
+    image: ${COMPOSE_PROJECT_NAME:-infrascope}:local
+    user: "${INFRASCOPE_UID:-10001}:${INFRASCOPE_GID:-10001}"
+    env_file:
+      - .runtime/compose.env
+    environment:
+      REMOTE_ENABLED: "true"
+      REMOTE_LISTEN: 0.0.0.0:8443
+      REMOTE_STATIC_DIR: /app/web
+      REMOTE_TLS_CERT: /run/infrascope-tls/server.crt
+      REMOTE_TLS_KEY: /run/infrascope-tls/server.key
+      REMOTE_LOOPBACK_TEST: "false"
+    ports:
+      - "${INFRASCOPE_BIND:-127.0.0.1}:${INFRASCOPE_HTTPS_PORT:-18443}:8443"
+    volumes:
+      - ./.runtime/tls:/run/infrascope-tls:ro
+      - ./.runtime/downloads:/app/web/downloads:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [database, gateway]
+volumes:
+  postgres-data:
+networks:
+  database:
+    internal: true
+  gateway: {}

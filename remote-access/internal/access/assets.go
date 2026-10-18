@@ -3,13 +3,14 @@ package access
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -36,23 +37,7 @@ func (a *App) assets(w http.ResponseWriter, r *http.Request, u *User) error {
 	ctx := r.Context()
 	id := r.PathValue("id")
 	if r.Method == "GET" {
-		q := `SELECT a.id,a.name,a.kind,a.os_family,a.group_name,a.tags,a.description,a.metadata,a.enabled,a.archived,a.version,a.inventory_id,COALESCE((SELECT json_agg(json_build_object('id',e.id,'protocol',e.protocol,'host',e.host,'port',e.port,'gatewayId',e.gateway_id,'version',e.version)) FROM ra_endpoints e WHERE e.asset_id=a.id),'[]') AS endpoints FROM ra_assets a WHERE a.workspace=$1 AND ($2='' OR a.id=$2) AND ($3='admin' OR a.created_by=$4 AND $3='asset_manager' OR EXISTS(SELECT 1 FROM ra_grants g WHERE g.workspace=a.workspace AND g.asset_id=a.id AND NOT g.revoked AND g.starts_at<=now() AND g.expires_at>now() AND (g.user_id=$4 OR g.group_id IN(SELECT group_id FROM ra_group_members WHERE user_id=$4 AND workspace=$1)))) AND ($6='' OR a.name ILIKE $6 OR a.kind ILIKE $6 OR a.os_family ILIKE $6 OR a.group_name ILIKE $6 OR a.tags::text ILIKE $6) ORDER BY a.name,a.id LIMIT 100 OFFSET $5`
-		offsetText := r.URL.Query().Get("offset")
-		if offsetText == "" {
-			offsetText = "0"
-		}
-		offset, parseErr := strconv.Atoi(offsetText)
-		if parseErr != nil || offset < 0 || offset > 1000000 {
-			return fail(400, "pagination_offset", "分页位置无效")
-		}
-		search := strings.TrimSpace(r.URL.Query().Get("q"))
-		if len(search) > 200 {
-			return fail(400, "search_length", "搜索文本过长")
-		}
-		if search != "" {
-			search = "%" + search + "%"
-		}
-		v, e := a.list(ctx, q, u.Workspace, id, u.Role, u.ID, offset, search)
+		v, e := a.queryAssets(r, u, 100, false)
 		if e != nil {
 			return e
 		}
@@ -69,91 +54,17 @@ func (a *App) assets(w http.ResponseWriter, r *http.Request, u *User) error {
 	if e := require(u, "asset.manage"); e != nil {
 		return e
 	}
-	var in struct {
-		Name        string            `json:"name"`
-		Kind        string            `json:"kind"`
-		OS          string            `json:"osFamily"`
-		Group       string            `json:"groupName"`
-		Tags        []string          `json:"tags"`
-		Description string            `json:"description"`
-		Metadata    map[string]string `json:"metadata"`
-		Enabled     bool              `json:"enabled"`
-		Archived    bool              `json:"archived"`
-		Inventory   string            `json:"inventoryId"`
-		Endpoints   []Endpoint        `json:"endpoints"`
-	}
+	var in AssetInput
 	if e := decode(w, r, &in); e != nil {
 		return e
-	}
-	if !bounded(in.Name, 180) || !contains([]string{"physical", "virtual"}, in.Kind) || !contains([]string{"linux", "windows", "other"}, in.OS) || len(in.Description) > 2000 || len(in.Tags) > 30 || len(in.Group) > 120 || len(in.Endpoints) < 1 || len(in.Endpoints) > 3 {
-		return fail(400, "asset_invalid", "资产字段无效")
-	}
-	seen := map[string]bool{}
-	for _, ep := range in.Endpoints {
-		if !contains([]string{"ssh", "sftp", "rdp"}, ep.Protocol) || seen[ep.Protocol] || !validHost(ep.Host) || ep.Port < 1 || ep.Port > 65535 || !bounded(ep.Gateway, 120) {
-			return fail(400, "endpoint_invalid", "协议端点无效或重复")
-		}
-		seen[ep.Protocol] = true
-	}
-	for _, t := range in.Tags {
-		if !bounded(t, 80) {
-			return fail(400, "tag_invalid", "标签无效")
-		}
-	}
-	for k, v := range in.Metadata {
-		if !contains([]string{"provider", "vmName", "instanceId", "hypervisorLabel"}, k) || len(v) > 200 {
-			return fail(400, "metadata_invalid", "虚拟机元数据无效")
-		}
 	}
 	tx, e := a.DB.Begin(ctx)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback(ctx)
-	if id == "" {
-		id = ID()
-		_, e = tx.Exec(ctx, `INSERT INTO ra_assets(id,workspace,name,kind,os_family,group_name,tags,description,metadata,enabled,archived,inventory_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,''),$13)`, id, u.Workspace, in.Name, in.Kind, in.OS, in.Group, marshal(in.Tags), in.Description, marshal(in.Metadata), in.Enabled, in.Archived, in.Inventory, u.ID)
-	} else {
-		if e = a.manageAsset(ctx, u, id); e != nil {
-			return e
-		}
-		_, e = tx.Exec(ctx, `UPDATE ra_assets SET name=$1,kind=$2,os_family=$3,group_name=$4,tags=$5,description=$6,metadata=$7,enabled=$8,archived=$9,version=version+1,updated_at=now() WHERE workspace=$10 AND id=$11`, in.Name, in.Kind, in.OS, in.Group, marshal(in.Tags), in.Description, marshal(in.Metadata), in.Enabled, in.Archived, u.Workspace, id)
-	}
+	id, e = a.saveAsset(ctx, tx, u, id, in)
 	if e != nil {
-		return e
-	}
-	for _, ep := range in.Endpoints {
-		var old Endpoint
-		err := tx.QueryRow(ctx, "SELECT id,host,port,gateway_id FROM ra_endpoints WHERE workspace=$1 AND asset_id=$2 AND protocol=$3", u.Workspace, id, ep.Protocol).Scan(&old.ID, &old.Host, &old.Port, &old.Gateway)
-		if err != nil {
-			_, e = tx.Exec(ctx, "INSERT INTO ra_endpoints(id,workspace,asset_id,protocol,host,port,gateway_id) VALUES($1,$2,$3,$4,$5,$6,$7)", ID(), u.Workspace, id, ep.Protocol, ep.Host, ep.Port, ep.Gateway)
-		} else if old.Host != ep.Host || old.Port != ep.Port || old.Gateway != ep.Gateway {
-			_, e = tx.Exec(ctx, "DELETE FROM ra_host_keys WHERE endpoint_id=$1", old.ID)
-			if e != nil {
-				return e
-			}
-			_, e = tx.Exec(ctx, "UPDATE ra_endpoints SET host=$1,port=$2,gateway_id=$3,version=version+1 WHERE id=$4", ep.Host, ep.Port, ep.Gateway, old.ID)
-		}
-		if e != nil {
-			return e
-		}
-	}
-	keptProtocols := []string{}
-	for proto := range seen {
-		keptProtocols = append(keptProtocols, proto)
-	}
-	if _, e = tx.Exec(ctx, "DELETE FROM ra_host_keys WHERE endpoint_id IN(SELECT id FROM ra_endpoints WHERE asset_id=$1 AND NOT(protocol=ANY($2)))", id, keptProtocols); e != nil {
-		return e
-	}
-	if _, e = tx.Exec(ctx, "DELETE FROM ra_endpoints WHERE asset_id=$1 AND NOT(protocol=ANY($2))", id, keptProtocols); e != nil {
-		return e
-	}
-	if in.Archived || !in.Enabled {
-		if _, e = tx.Exec(ctx, "UPDATE ra_grants SET revoked=true,version=version+1 WHERE workspace=$1 AND asset_id=$2", u.Workspace, id); e != nil {
-			return e
-		}
-	}
-	if _, e = tx.Exec(ctx, "INSERT INTO ra_audit_events(workspace,actor_id,action,object_id,result,details) VALUES($1,$2,'asset.save',$3,'success',$4)", u.Workspace, u.ID, id, marshal(map[string]any{"archived": in.Archived})); e != nil {
 		return e
 	}
 	if e = tx.Commit(ctx); e != nil {
@@ -163,6 +74,196 @@ func (a *App) assets(w http.ResponseWriter, r *http.Request, u *User) error {
 	jsonOut(w, 200, map[string]string{"id": id})
 	return nil
 }
+
+type AssetInput struct {
+	OrganizationID *string           `json:"organizationId"`
+	Category       *string           `json:"category"`
+	Environment    *string           `json:"environment"`
+	Site           *string           `json:"site"`
+	Business       *string           `json:"business"`
+	Ownership      *Ownership        `json:"ownership"`
+	Version        int64             `json:"version"`
+	Name           string            `json:"name"`
+	Kind           string            `json:"kind"`
+	OS             string            `json:"osFamily"`
+	Group          string            `json:"groupName"`
+	Tags           []string          `json:"tags"`
+	Description    string            `json:"description"`
+	Metadata       map[string]string `json:"metadata"`
+	Enabled        bool              `json:"enabled"`
+	Archived       bool              `json:"archived"`
+	Inventory      string            `json:"inventoryId"`
+	Endpoints      []Endpoint        `json:"endpoints"`
+}
+
+func (a *App) saveAsset(ctx context.Context, tx pgx.Tx, u *User, id string, in AssetInput) (string, error) {
+	if id != "" && in.Version < 1 {
+		return "", fail(400, "asset_version_required", "请刷新资产后再保存；更新必须携带当前版本")
+	}
+	if !bounded(in.Name, 180) || !contains([]string{"physical", "virtual"}, in.Kind) || !contains([]string{"linux", "windows", "other"}, in.OS) || len(in.Description) > 2000 || len(in.Tags) > 30 || len(in.Group) > 120 || len(in.Endpoints) > 3 {
+		return "", fail(400, "asset_invalid", "资产字段无效")
+	}
+	if in.Inventory != "" && (!bounded(in.Inventory, 180) || strings.TrimSpace(in.Inventory) != in.Inventory) {
+		return "", fail(400, "inventory_id_invalid", "inventoryId 需为不超过 180 字节的稳定标识，且无首尾空白")
+	}
+	seen := map[string]bool{}
+	for _, ep := range in.Endpoints {
+		if !contains([]string{"ssh", "sftp", "rdp"}, ep.Protocol) || seen[ep.Protocol] || !validHost(ep.Host) || ep.Port < 1 || ep.Port > 65535 || !bounded(ep.Gateway, 120) {
+			return "", fail(400, "endpoint_invalid", "协议端点无效或重复")
+		}
+		seen[ep.Protocol] = true
+	}
+	for _, t := range in.Tags {
+		if !bounded(t, 80) {
+			return "", fail(400, "tag_invalid", "标签无效")
+		}
+	}
+	for k, v := range in.Metadata {
+		if !contains([]string{"provider", "vmName", "instanceId", "hypervisorLabel"}, k) || len(v) > 200 {
+			return "", fail(400, "metadata_invalid", "虚拟机元数据无效")
+		}
+	}
+	var e error
+	category, environment, site, business := "server", "", "", ""
+	organization := ""
+	var oldOwnership []byte
+	legacy := true
+	if id != "" {
+		if e = a.manageAsset(ctx, u, id); e != nil {
+			return "", e
+		}
+		var version int64
+		if e = tx.QueryRow(ctx, `SELECT version,category,environment,site,business,ownership,ownership_legacy,COALESCE(organization_id,'') FROM ra_assets WHERE workspace=$1 AND id=$2 FOR UPDATE`, u.Workspace, id).Scan(&version, &category, &environment, &site, &business, &oldOwnership, &legacy, &organization); errors.Is(e, pgx.ErrNoRows) {
+			return "", fail(404, "asset_not_found", "资产不存在")
+		} else if e != nil {
+			return "", e
+		}
+		if version != in.Version {
+			return "", fail(409, "asset_version_conflict", "资产已被其他操作修改；请刷新并核对差异后重新保存")
+		}
+	}
+	if in.OrganizationID != nil {
+		organization = *in.OrganizationID
+		if e = a.validateAssetOrganization(ctx, tx, u, organization); e != nil {
+			return "", e
+		}
+	}
+	for _, field := range []struct {
+		input  *string
+		target *string
+	}{{in.Category, &category}, {in.Environment, &environment}, {in.Site, &site}, {in.Business, &business}} {
+		if field.input != nil {
+			*field.target = strings.TrimSpace(*field.input)
+		}
+		if !optionalText(*field.target, 120) {
+			return "", fail(400, "asset_classification", "资产分类字段过长或无效")
+		}
+	}
+	if !contains([]string{"server", "nas", "pve", "switch", "printer", "scanner", "other"}, category) {
+		return "", fail(400, "asset_category", "资产类别无效")
+	}
+	if in.Ownership == nil && legacy {
+		return "", fail(400, "ownership_required", "请指定使用人，或明确指定待认领责任人；旧资产也需补齐责任")
+	}
+	ownership := oldOwnership
+	ownershipChanged := false
+	peopleSnapshot := []map[string]string{}
+	if in.Ownership != nil {
+		if e = in.Ownership.normalize(); e != nil {
+			return "", e
+		}
+		for _, personID := range in.Ownership.ids() {
+			var name, department, contactType string
+			// Lock until commit so a concurrent disable cannot slip into a new binding.
+			if e = tx.QueryRow(ctx, `SELECT display_name,department,contact_type FROM ra_people WHERE workspace=$1 AND id=$2 AND enabled FOR SHARE`, u.Workspace, personID).Scan(&name, &department, &contactType); errors.Is(e, pgx.ErrNoRows) {
+				return "", fail(400, "ownership_person", "责任人员不存在、已停用或不属于当前工作空间")
+			} else if e != nil {
+				return "", e
+			}
+			peopleSnapshot = append(peopleSnapshot, map[string]string{"id": personID, "displayName": name, "department": department, "contactType": contactType})
+		}
+		ownershipChanged = legacy || !sameOwnership(oldOwnership, in.Ownership)
+		ownership = marshal(in.Ownership)
+	}
+	if id == "" {
+		id = ID()
+		_, e = tx.Exec(ctx, `INSERT INTO ra_assets(id,workspace,name,kind,os_family,group_name,tags,description,metadata,enabled,archived,inventory_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,''),$13)`, id, u.Workspace, in.Name, in.Kind, in.OS, in.Group, marshal(in.Tags), in.Description, marshal(in.Metadata), in.Enabled, in.Archived, in.Inventory, u.ID)
+	} else {
+		if e = a.manageAsset(ctx, u, id); e != nil {
+			return "", e
+		}
+		result, err := tx.Exec(ctx, `UPDATE ra_assets SET name=$1,kind=$2,os_family=$3,group_name=$4,tags=$5,description=$6,metadata=$7,enabled=$8,archived=$9,version=version+1,updated_at=now() WHERE workspace=$10 AND id=$11 AND version=$12`, in.Name, in.Kind, in.OS, in.Group, marshal(in.Tags), in.Description, marshal(in.Metadata), in.Enabled, in.Archived, u.Workspace, id, in.Version)
+		if err != nil {
+			return "", err
+		}
+		if result.RowsAffected() != 1 {
+			return "", fail(409, "asset_version_conflict", "资产已被其他操作修改；请刷新并核对差异后重新保存")
+		}
+	}
+	if e != nil {
+		return "", e
+	}
+	if _, e = tx.Exec(ctx, `UPDATE ra_assets SET category=$1,environment=$2,site=$3,business=$4,ownership=$5,ownership_legacy=false,organization_id=NULLIF($8,'') WHERE workspace=$6 AND id=$7`, category, environment, site, business, ownership, u.Workspace, id, organization); e != nil {
+		return "", e
+	}
+	if ownershipChanged {
+		if _, e = tx.Exec(ctx, "DELETE FROM ra_asset_responsibility_refs WHERE workspace=$1 AND asset_id=$2", u.Workspace, id); e != nil {
+			return "", e
+		}
+		for _, personID := range in.Ownership.ids() {
+			if _, e = tx.Exec(ctx, "INSERT INTO ra_asset_responsibility_refs(workspace,asset_id,person_id) VALUES($1,$2,$3)", u.Workspace, id, personID); e != nil {
+				return "", e
+			}
+		}
+		if _, e = tx.Exec(ctx, `INSERT INTO ra_asset_ownership_history(workspace,asset_id,revision,ownership,people_snapshot,changed_by) SELECT workspace,id,version,$1,$2,$3 FROM ra_assets WHERE workspace=$4 AND id=$5`, ownership, marshal(peopleSnapshot), u.ID, u.Workspace, id); e != nil {
+			return "", e
+		}
+	}
+	for _, ep := range in.Endpoints {
+		var old Endpoint
+		err := tx.QueryRow(ctx, "SELECT id,host,port,gateway_id FROM ra_endpoints WHERE workspace=$1 AND asset_id=$2 AND protocol=$3", u.Workspace, id, ep.Protocol).Scan(&old.ID, &old.Host, &old.Port, &old.Gateway)
+		if errors.Is(err, pgx.ErrNoRows) {
+			_, e = tx.Exec(ctx, "INSERT INTO ra_endpoints(id,workspace,asset_id,protocol,host,port,gateway_id) VALUES($1,$2,$3,$4,$5,$6,$7)", ID(), u.Workspace, id, ep.Protocol, ep.Host, ep.Port, ep.Gateway)
+		} else if err != nil {
+			return "", err
+		} else if old.Host != ep.Host || old.Port != ep.Port || old.Gateway != ep.Gateway {
+			if _, e = tx.Exec(ctx, "DELETE FROM ra_asset_egress WHERE workspace=$1 AND asset_id=$2 AND protocol=$3", u.Workspace, id, ep.Protocol); e != nil {
+				return "", e
+			}
+			_, e = tx.Exec(ctx, "DELETE FROM ra_host_keys WHERE endpoint_id=$1", old.ID)
+			if e != nil {
+				return "", e
+			}
+			_, e = tx.Exec(ctx, "UPDATE ra_endpoints SET host=$1,port=$2,gateway_id=$3,version=version+1 WHERE id=$4", ep.Host, ep.Port, ep.Gateway, old.ID)
+		}
+		if e != nil {
+			return "", e
+		}
+	}
+	keptProtocols := []string{}
+	for proto := range seen {
+		keptProtocols = append(keptProtocols, proto)
+	}
+	if _, e = tx.Exec(ctx, "DELETE FROM ra_asset_egress WHERE workspace=$1 AND asset_id=$2 AND NOT(protocol=ANY($3))", u.Workspace, id, keptProtocols); e != nil {
+		return "", e
+	}
+	if _, e = tx.Exec(ctx, "DELETE FROM ra_host_keys WHERE endpoint_id IN(SELECT id FROM ra_endpoints WHERE asset_id=$1 AND NOT(protocol=ANY($2)))", id, keptProtocols); e != nil {
+		return "", e
+	}
+	if _, e = tx.Exec(ctx, "DELETE FROM ra_endpoints WHERE asset_id=$1 AND NOT(protocol=ANY($2))", id, keptProtocols); e != nil {
+		return "", e
+	}
+	if in.Archived || !in.Enabled {
+		if _, e = tx.Exec(ctx, "UPDATE ra_grants SET revoked=true,version=version+1 WHERE workspace=$1 AND asset_id=$2", u.Workspace, id); e != nil {
+			return "", e
+		}
+	}
+	if _, e = tx.Exec(ctx, "INSERT INTO ra_audit_events(workspace,actor_id,action,object_id,result,details) VALUES($1,$2,'asset.save',$3,'success',$4)", u.Workspace, u.ID, id, marshal(map[string]any{"archived": in.Archived})); e != nil {
+		return "", e
+	}
+	return id, nil
+}
+
 func (a *App) accounts(w http.ResponseWriter, r *http.Request, u *User) error {
 	ctx := r.Context()
 	id, asset := r.PathValue("id"), r.PathValue("asset")

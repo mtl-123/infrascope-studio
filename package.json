@@ -3,8 +3,43 @@
   "private": true,
   "version": "0.7.0",
   "scripts": {
+    "test:telemetry-e2e": "node scripts/test-telemetry-e2e.mjs",
+    "test:telemetry-rust": "cargo test --manifest-path telemetry-agent/Cargo.toml --locked",
+    "build:telemetry": "cargo build --manifest-path telemetry-agent/Cargo.toml --release --locked",
     "vendor:terminal": "node scripts/vendor-terminal.mjs",
-    "test:existing": "node tests/inventory.test.cjs && node tests/ops-core.test.cjs && node tests/operations.test.cjs && node tests/workspace.test.cjs && node tests/reliability.test.cjs && node tests/logs.test.cjs"
+    "test:gates": "node --test tests/test-gates.test.mjs",
+    "test:asset-form": "node --test tests/remote-assets.test.mjs",
+    "check:requirements": "python3 scripts/check-requirements.py",
+    "test:requirements": "python3 -m unittest discover -s tests -p test_requirements.py -v",
+    "test:connector": "node --test windows-connector/tests/*.test.mjs",
+    "test:native-pg": "node scripts/test-native-postgres.mjs",
+    "test:unified-assets": "node --test tests/unified-assets-routing.test.mjs",
+    "test:import-discovery": "node --test tests/import-discovery-ui.test.mjs",
+    "test:asset-remote": "node --test tests/asset-remote-workflow.test.mjs",
+    "test:server-onboarding": "node --test tests/server-onboarding-ui.test.mjs",
+    "test:quick-launch": "node --test tests/quick-launch.test.mjs tests/quick-launch-browser.test.mjs",
+    "test:full-qa-regression": "node --test tests/full-qa-regression.test.mjs",
+    "test:isolated-recovery": "node scripts/test-isolated-db-recovery.mjs",
+    "test:p2-recovery": "node scripts/test-p2-recovery.mjs",
+    "dev:init": "node scripts/dev-wsl.mjs init",
+    "dev": "node scripts/dev-wsl.mjs serve",
+    "dev:stop-db": "node scripts/dev-wsl.mjs stop-db",
+    "test:existing": "node tests/inventory.test.cjs && node tests/ops-core.test.cjs && node tests/operations.test.cjs && node tests/workspace.test.cjs && node tests/reliability.test.cjs && node tests/logs.test.cjs",
+    "prepare:onboarding": "node scripts/prepare-onboarding.mjs",
+    "test:onboarding": "node --test tests/getting-started.test.cjs tests/getting-started-shell.test.cjs",
+    "build:web": "node scripts/build.mjs web",
+    "build": "node scripts/build.mjs service",
+    "build:all": "node scripts/build.mjs all",
+    "setup": "node scripts/setup-compose.mjs",
+    "up": "node scripts/compose.mjs up",
+    "down": "node scripts/compose.mjs down",
+    "status": "node scripts/compose.mjs ps",
+    "logs": "node scripts/compose.mjs logs",
+    "test": "node scripts/check.mjs",
+    "package:telemetry": "python3 scripts/package-telemetry.py --platform native",
+    "check:source": "python3 scripts/check-source.py",
+    "test:service-smoke": "node scripts/test-service-smoke.mjs",
+    "prepare:compose-downloads": "node scripts/prepare-onboarding.mjs --compose"
   },
   "dependencies": {
     "@xterm/xterm": "6.0.0",
@@ -15,5 +50,8 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10",
     "@electric-sql/pglite-socket": "0.2.13"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

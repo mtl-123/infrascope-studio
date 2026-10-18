@@ -84,7 +84,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		errorOut(w, e)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: "infra_session", Value: token, Path: "/", HttpOnly: true, Secure: !a.Config.LoopbackTest, SameSite: http.SameSiteStrictMode, MaxAge: a.Config.SessionHours * 3600})
+	http.SetCookie(w, &http.Cookie{Name: "infra_session", Value: token, Path: "/", HttpOnly: true, Secure: strings.HasPrefix(a.Config.Origin, "https://"), SameSite: http.SameSiteStrictMode, MaxAge: a.Config.SessionHours * 3600})
 	jsonOut(w, 200, map[string]any{"id": u.ID, "displayName": u.Name, "role": u.Role, "mustChangePassword": u.MustChange, "csrf": csrf})
 }
 func (a *App) me(w http.ResponseWriter, r *http.Request, u *User) error {
@@ -99,7 +99,7 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request, u *User) error {
 	if e := a.audit(r.Context(), u, "logout", u.ID, "success", "", map[string]any{}); e != nil {
 		return e
 	}
-	http.SetCookie(w, &http.Cookie{Name: "infra_session", Value: "", Path: "/", HttpOnly: true, Secure: !a.Config.LoopbackTest, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: "infra_session", Value: "", Path: "/", HttpOnly: true, Secure: strings.HasPrefix(a.Config.Origin, "https://"), SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	jsonOut(w, 200, map[string]bool{"ok": true})
 	return nil
 }

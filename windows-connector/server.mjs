@@ -17,6 +17,11 @@ import {
   approvedOrigin,
   secureLocalRequest,
   deviceCanonical,
+  validateLauncherQuery,
+  validateLauncherRequest,
+  launcherPayload,
+  validateLauncherURL,
+  launcherCatalog,
 } from "./protocol.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url)),
   publicDir = path.join(here, "public"),
@@ -46,6 +51,7 @@ let identity = null,
   polling = false,
   lastCapabilityCheck = 0;
 const launches = new Map(),
+  taskInflight = new Map(),
   locks = new Set(),
   children = new Set();
 const ps = path.join(
@@ -380,13 +386,16 @@ async function launch(config, id = null) {
     if (!result.ok) locks.delete(target);
     if (id) {
       launches.set(id, {
+        ...launches.get(id),
         id,
+        ok: result.ok === true,
         state: result.ok
           ? "started"
           : result.code === "signing_setup_required"
             ? "signing_setup_required"
             : "failed",
         pid: result.pid || 0,
+        code: result.code || "",
       });
       await signedRequest("event", {
         launchId: id,
@@ -414,44 +423,114 @@ async function launchTask(body) {
     Object.keys(body).some((k) => !["launchId", "confirmed"].includes(k)) ||
     mode !== "controlled" ||
     typeof body.launchId !== "string" ||
+    !/^[A-Za-z0-9_-]{1,120}$/.test(body.launchId) ||
     body.confirmed !== true
   )
     throw Error("Local confirmation and a platform task are required");
+  if (taskInflight.has(body.launchId)) return taskInflight.get(body.launchId);
   if (launches.has(body.launchId)) return launches.get(body.launchId);
-  const item = pending.find((x) => x.id === body.launchId);
-  if (!item || Date.parse(item.expires_at) <= Date.now())
-    throw Error("Task is absent or expired");
-  const data = await signedRequest("redeem", {
-    launchId: body.launchId,
-    locallyConfirmed: true,
-  });
-  if (
-    data.connectorId !== device.connectorId ||
-    data.windowsUserHash !== identity.windowsUserHash ||
-    Date.parse(data.expiresAt) <= Date.now()
-  )
-    throw Error("Task binding mismatch");
-  const o = data.options;
-  if (
-    (o.redirectClipboard && !data.permittedActions.includes("rdp.clipboard")) ||
-    (o.redirectDrives && !data.permittedActions.includes("rdp.driveRedirect"))
-  )
-    throw Error("Resource policy denied");
-  const config = {
-    address: data.address,
-    port: data.port,
-    username: data.username,
-    password: data.password,
-    ...o,
-  };
-  data.password = "";
-  launches.set(body.launchId, { id: body.launchId, state: "received" });
-  pending = pending.filter((x) => x.id !== body.launchId);
+  const operation = performLaunchTask(body);
+  taskInflight.set(body.launchId, operation);
   try {
-    return await launch(config, body.launchId);
+    return await operation;
   } finally {
-    config.password = "";
+    taskInflight.delete(body.launchId);
   }
+}
+async function performLaunchTask(body) {
+  const item = pending.find((x) => x.id === body.launchId);
+  if (!item || !Number.isFinite(Date.parse(item.expires_at)) || Date.parse(item.expires_at) <= Date.now())
+    throw Error("Task is absent or expired");
+  let data, config;
+  try {
+    data = await signedRequest("redeem", {
+      launchId: body.launchId,
+      locallyConfirmed: true,
+    });
+    if (
+      data.connectorId !== device.connectorId ||
+      data.windowsUserHash !== identity.windowsUserHash ||
+      !Number.isFinite(Date.parse(data.expiresAt)) ||
+      Date.parse(data.expiresAt) <= Date.now()
+    )
+      throw Error("Task binding mismatch");
+    const o = data.options;
+    if (
+      (o.redirectClipboard && !data.permittedActions.includes("rdp.clipboard")) ||
+      (o.redirectDrives && !data.permittedActions.includes("rdp.driveRedirect"))
+    )
+      throw Error("Resource policy denied");
+    config = {
+      address: data.address,
+      port: data.port,
+      username: data.username,
+      password: data.password,
+      ...o,
+    };
+    data.password = "";
+    launches.set(body.launchId, { id: body.launchId, ok: false, state: "received" });
+    pending = pending.filter((x) => x.id !== body.launchId);
+    const result = await launch(config, body.launchId);
+    const outcome = {
+      ...launches.get(body.launchId),
+      ...result,
+      id: body.launchId,
+      ok: result.ok === true,
+      state: result.ok ? "started" : result.code === "signing_setup_required" ? "signing_setup_required" : "failed",
+    };
+    launches.set(body.launchId, outcome);
+    return outcome;
+  } catch (e) {
+    // An ambiguous redeem/start must never consume the ticket or start mstsc twice.
+    launches.set(body.launchId, {
+      id: body.launchId,
+      ok: false,
+      state: "failed",
+      code: "launch_result_uncertain",
+      error: "Launch failed or its result is uncertain; verify locally before creating a new task",
+    });
+    pending = pending.filter((x) => x.id !== body.launchId);
+    throw e;
+  } finally {
+    if (data) data.password = "";
+    if (config) config.password = "";
+  }
+}
+function requireLauncherDevice() {
+  if (mode !== "controlled" || !platform || !device || !key)
+    throw Object.assign(Error("Pair this Windows connector with the HTTPS platform first"), { status: 409 });
+}
+async function openFromLauncher(body) {
+  requireLauncherDevice();
+  const payload = launcherPayload(body, device.userId);
+  const result = await signedRequest("quick-launch", {
+    browserBindingId: device.browserBindingId,
+    ...payload,
+  });
+  if (body.protocol !== "rdp") {
+    if (result.state !== "open_browser") throw Error("Invalid launcher response state");
+    return { state: "open_browser", url: validateLauncherURL(result.url, platform, { ...body, userId: device.userId }) };
+  }
+  if (typeof result.id !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(result.id))
+    throw Error("Invalid launcher task response");
+  if (!launches.has(result.id) && !taskInflight.has(result.id)) {
+    // Fetch bound task metadata; normal polling still never launches anything.
+    const tasks = await signedRequest("poll", {
+      launchId: result.id,
+      capabilities,
+      windowsUserHash: identity.windowsUserHash,
+    });
+    if (!Array.isArray(tasks.launches)) throw Error("Invalid launcher task list");
+    pending = tasks.launches.filter((item) => !launches.has(item.id));
+  }
+  const outcome = await launchTask({ launchId: result.id, confirmed: true });
+  return {
+    id: result.id,
+    ok: outcome.ok === true,
+    state: outcome.state,
+    pid: outcome.pid || 0,
+    code: outcome.code || "",
+  };
 }
 async function readJSON(req) {
   if (!String(req.headers["content-type"] || "").startsWith("application/json"))
@@ -499,6 +578,30 @@ const server = http.createServer(async (req, res) => {
           capabilities,
           error: pollError,
         });
+        return;
+      }
+      if (url.pathname === "/api/launcher/catalog" && req.method === "GET") {
+        if ([...url.searchParams.keys()].some((key) => key !== "q") || url.searchParams.getAll("q").length > 1)
+          throw Error("Invalid launcher query fields");
+        const query = validateLauncherQuery(url.searchParams.get("q") || "");
+        requireLauncherDevice();
+        const catalog = launcherCatalog(await signedRequest("catalog", {
+          browserBindingId: device.browserBindingId,
+          query,
+        }), device.userId);
+        json(res, 200, { ...catalog, platform, deviceName: device.name });
+        return;
+      }
+      if (url.pathname === "/api/launcher/open" && req.method === "POST") {
+        if (url.search) throw Error("Invalid launcher request query");
+        const body = validateLauncherRequest(await readJSON(req));
+        requireLauncherDevice();
+        if (process.platform !== "win32") {
+          json(res, 501, { error: "Native launcher requires Windows" });
+          return;
+        }
+        const result = await openFromLauncher(body);
+        json(res, result.ok === false ? 409 : 200, result);
         return;
       }
       if (process.platform !== "win32") {
@@ -591,6 +694,7 @@ const server = http.createServer(async (req, res) => {
       "Content-Length": data.length,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
       "Permissions-Policy": "display-capture=(self)",
       "Content-Security-Policy":
         "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
@@ -605,7 +709,7 @@ const server = http.createServer(async (req, res) => {
         )
           ? 400
           : 500),
-      { error: e.message || "Operation failed" },
+      { error: e.message || "Operation failed", ...(e.code === "paired_user_changed" ? { code: e.code } : {}) },
     );
   }
 });

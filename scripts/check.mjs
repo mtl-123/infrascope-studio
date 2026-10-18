@@ -1,0 +1,12 @@
+import { spawnSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+const root = fileURLToPath(new URL('../', import.meta.url));
+const run=(cmd,args)=>{const r=spawnSync(cmd,args,{cwd:root,stdio:'inherit'});if(r.error||r.status!==0)process.exit(r.status||1);};
+run(process.execPath,['scripts/build.mjs','web']);
+run(process.execPath,['--test',...readdirSync(new URL('../tests/',import.meta.url)).filter(n=>n.endsWith('.test.mjs')||n.startsWith('getting-started')&&n.endsWith('.test.cjs')).sort().map(n=>'tests/'+n)]);
+for(const name of ['inventory','ops-core','operations','workspace','reliability','logs'])run(process.execPath,['tests/'+name+'.test.cjs']);
+run(process.execPath,['--test',...readdirSync(new URL('../windows-connector/tests/',import.meta.url)).filter(n=>n.endsWith('.test.mjs')).map(n=>'windows-connector/tests/'+n)]);
+run('python3',['-m','unittest','discover','-s','tests','-p','test_requirements.py','-v']);
+run('python3',['scripts/check-requirements.py']);
+run('python3',['scripts/check-source.py']);
