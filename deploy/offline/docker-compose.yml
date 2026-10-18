@@ -1,0 +1,74 @@
+services:
+  db:
+    image: @PG_IMAGE@
+    pull_policy: never
+    env_file: ./config/postgres.env
+    command:
+      - postgres
+      - -c
+      - logging_collector=on
+      - -c
+      - log_destination=stderr
+      - -c
+      - log_directory=/var/log/postgresql
+      - -c
+      - log_filename=postgresql-%Y-%m-%d.log
+      - -c
+      - log_rotation_age=1d
+      - -c
+      - log_truncate_on_rotation=on
+      - -c
+      - log_file_mode=0640
+    volumes:
+      - ./data/postgres:/var/lib/postgresql
+      - ./logs/postgres:/var/log/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d infrascope"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    networks: [database]
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+  app:
+    image: @APP_IMAGE@
+    pull_policy: never
+    user: "${APP_UID:-10001}:${APP_GID:-10001}"
+    entrypoint: ["/bin/sh", "/app/offline/app-entrypoint.sh"]
+    command: ["serve"]
+    env_file: ./config/app.env
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${HTTPS_PORT:-18443}:8443"
+    volumes:
+      - ./config/tls:/run/infrascope/tls:ro
+      - ./logs/app:/var/log/infrascope
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/bin/sh", "/app/offline/health.sh"]
+      interval: 5s
+      timeout: 8s
+      retries: 18
+      start_period: 10s
+    networks: [database, access]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+networks:
+  database:
+    internal: true
+  access: {}

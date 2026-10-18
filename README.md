@@ -64,3 +64,7 @@ npm run test:native-pg  # Docker 原生 PostgreSQL + Go race；需要 C 编译�
 详细说明：[构建与运行](docs/development/BUILD-AND-RUN.md) · [操作手册](docs/user-guide/使用手册.md) · [需求索引](docs/requirements/README.md) · [模块当前状态](docs/STATUS.md)。
 
 当前属于部分实现：资产、采集与远程控制面有真实接口，部分监控/日志/告警页面仍为演示；完整产品、目标实机、自启和生产容量尚未验收。历史报告中的本机绝对路径仅用于记录，不是新机器的构建依赖。
+
+### Linux amd64 离线部署
+
+离线包包含 Web 服务、PostgreSQL 镜像和 `docker-compose.yml`，目标服务器无需联网构建。配置、数据库和日志保存在部署目录。参见 [离线部署手册](deploy/offline/README.md)。开发机运行 `npm run package:offline` 生成包，`npm run test:offline` 验证归档导入和数据持久化；GitHub Actions 的 Build offline Linux package 自动生成并验证下载包。

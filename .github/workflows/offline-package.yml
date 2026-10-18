@@ -1,0 +1,35 @@
+name: Build offline Linux package
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile
+      - deploy/offline/**
+      - scripts/package-offline.mjs
+      - scripts/test-offline-package.mjs
+      - .github/workflows/offline-package.yml
+permissions:
+  contents: read
+jobs:
+  offline-amd64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Build and save offline images
+        run: node scripts/package-offline.mjs
+      - name: Deploy from archive and verify persistence
+        run: node scripts/test-offline-package.mjs
+      - name: Upload offline deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: infrascope-offline-linux-amd64
+          path: |
+            release/offline/*.tar.gz
+            release/offline/*.tar.gz.sha256
+            release/offline/TEST-REPORT.json
+          compression-level: 0
+          retention-days: 7

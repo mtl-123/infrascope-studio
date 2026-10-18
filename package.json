@@ -39,7 +39,9 @@
     "package:telemetry": "python3 scripts/package-telemetry.py --platform native",
     "check:source": "python3 scripts/check-source.py",
     "test:service-smoke": "node scripts/test-service-smoke.mjs",
-    "prepare:compose-downloads": "node scripts/prepare-onboarding.mjs --compose"
+    "prepare:compose-downloads": "node scripts/prepare-onboarding.mjs --compose",
+    "package:offline": "node scripts/package-offline.mjs",
+    "test:offline": "node scripts/test-offline-package.mjs"
   },
   "dependencies": {
     "@xterm/xterm": "6.0.0",

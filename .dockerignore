@@ -13,3 +13,8 @@ remote-access/.env
 !scripts/
 !scripts/build.mjs
 !scripts/vendor-terminal.mjs
+
+!deploy/
+!deploy/offline/
+!deploy/offline/runtime/
+!deploy/offline/runtime/**

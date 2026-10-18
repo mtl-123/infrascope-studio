@@ -17,11 +17,12 @@ COPY remote-access/ ./
 RUN CGO_ENABLED=0 go build -trimpath -o /out/infrascope ./cmd/infrascope
 
 FROM debian:bookworm-slim AS runtime
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 infrascope && useradd --uid 10001 --gid infrascope --no-create-home infrascope
 WORKDIR /app
 COPY --from=server-build /out/infrascope /app/infrascope
 COPY --from=web-build /src/dist /app/web
+COPY deploy/offline/runtime/ /app/offline/
 USER 10001:10001
 ENV REMOTE_STATIC_DIR=/app/web REMOTE_LISTEN=0.0.0.0:8443
 EXPOSE 8443
