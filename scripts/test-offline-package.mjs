@@ -39,6 +39,9 @@ try{
  for(const id of ids){const item=JSON.parse(run('docker',['inspect',id],{capture:true}))[0];for(const mount of item.Mounts){if(mount.Type==='tmpfs'&&mount.Destination==='/tmp')continue;if(mount.Type!=='bind'||!mount.Source.startsWith(bundle+'/'))throw Error('Runtime state is outside the deployment directory');}}
  summary.checks.push('configuration, data and log mounts are only under the current directory');
  summary.status='PASS';
+}catch(error){
+ try{run('docker',['compose','--env-file','config/deploy.env','-f','docker-compose.yml','logs','--tail','60','db'],{cwd:bundle});}catch{}
+ throw error;
 }finally{
  try{await access(join(bundle,'config/deploy.env'));run('./stop.sh',[],{cwd:bundle});summary.cleanup='PASS';}catch{summary.cleanup='NOT_CONFIRMED';}
  await writeFile(join(root,'release/offline/TEST-REPORT.json'),JSON.stringify(summary,null,2)+'\n');

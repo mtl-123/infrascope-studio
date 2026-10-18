@@ -95,3 +95,8 @@ chmod 750 /logs/app
 chown "$postgres_uid:$host_gid" /logs/postgres
 chmod 2750 /logs/postgres
 printf 'Configuration ready. Private administrator credentials: config/admin.json\n'
+
+# The postgres entrypoint drops privileges and must traverse the bind root.
+# Change only the mount root, preserving ownership of existing database files.
+chown "$postgres_uid:$host_gid" /database
+chmod 700 /database

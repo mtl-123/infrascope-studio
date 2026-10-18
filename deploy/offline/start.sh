@@ -37,6 +37,7 @@ postgres_uid=$(docker run --rm --pull never --network none --entrypoint id "$PG_
 docker run --rm --pull never --network none --user 0:0 --entrypoint /bin/sh \
   --mount "type=bind,source=$BUNDLE_DIR/config,target=/config" \
   --mount "type=bind,source=$BUNDLE_DIR/logs,target=/logs" \
+  --mount "type=bind,source=$BUNDLE_DIR/data/postgres,target=/database" \
   "$APP_IMAGE" /app/offline/initialize.sh "$host" "$port" "$(id -u)" "$(id -g)" "$postgres_uid" "$project" "$bind_address"
 # Docker Compose auto-loads the public deployment settings; all actual configuration remains in config/.
 if [ -e .env ] || [ -L .env ]; then
