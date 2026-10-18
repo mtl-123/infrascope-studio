@@ -110,6 +110,12 @@ try {
   report.exitCode = result.code;
   report.tests = summarizeGoTests(result.stdout, required);
   report.status = result.code === 0 && report.tests.ok ? "PASS" : "FAIL";
+  if (report.status !== "PASS") {
+    const events = result.stdout.split(/\r?\n/).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
+    const failed = new Set(events.filter(event => event.Action === "fail" && event.Test).map(event => event.Test));
+    for (const event of events) if (failed.has(event.Test) && event.Output) console.error(redact(event.Output).trimEnd());
+    if (result.stderr) console.error(redact(result.stderr));
+  }
   process.exitCode = report.status === "PASS" ? 0 : 1;
 } catch (error) {
   report.error = error.message;
