@@ -19,7 +19,7 @@
 - 在干净副本执行 setup，两次执行后保留已有配置；Compose 配置校验通过。
 - 当前源码与 8 个原有提交的高置信度 token/key 检查未发现目标模式；这是发布前检查，不是完整安全审计。
 
-本机 Docker Hub HTTPS 请求超时，因此本轮未把 Dockerfile 镜像构建/Compose 实际启动标为通过。已提供 GitHub Actions 的服务、Rust 和 Compose 三组检查；应以实际 CI 结果确认容器构建。可直接采用已实测的原生构建方式。
+本机 Docker Hub HTTPS 请求超时，随后由 GitHub Actions 的 compose job 实际完成多阶段镜像构建、setup/up 和 HTTPS 登录/接口检查，结果通过。首次云端 service job 发现原生 PG 测试假设已有本地镜像缓存，现已修复为缺失时拉取固定 digest；不拉取浮动标签、不跳过测试。云端记录：https://github.com/mtl-123/infrascope-studio/actions/runs/39132759945 。
 
 结构化结果：`REPOSITORY-EXPORT-2026-10-18.json`。完整原始日志与截图不上传公开仓库。
 

@@ -68,6 +68,8 @@ try {
   await check(process.env.CC || "cc", ["--version"]);
   await check("docker", ["info", "--format", "{{.ServerVersion}}"]);
   // Never pull a moving tag or touch a user's existing PostgreSQL container.
+  const cachedImage = await run("docker", ["image", "inspect", image, "--format", "{{.Id}}"]);
+  if (cachedImage.code !== 0) await check("docker", ["pull", image], { timeout: 180000 });
   await check("docker", ["image", "inspect", image, "--format", "{{.Id}}"]);
   const password = randomBytes(32).toString("hex");
   await check("docker", ["run", "--detach", "--rm", "--name", name,

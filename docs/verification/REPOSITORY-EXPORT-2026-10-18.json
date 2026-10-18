@@ -25,7 +25,9 @@
       "ok": true
     }
   },
-  "dockerImageBuild": "NOT_VERIFIED: local registry HTTPS timeout; CI workflow provided",
+  "dockerImageBuild": "PASS: GitHub Actions compose job built the image, ran setup/up, verified HTTPS and authenticated APIs",
   "privateDataPublished": false,
-  "rawEvidence": "local only"
+  "rawEvidence": "local only",
+  "cloudVerificationRun": "https://github.com/mtl-123/infrascope-studio/actions/runs/39132759945",
+  "cloudFirstRunIssue": "Native PostgreSQL test assumed an already-cached image; fixed to pull the exact pinned digest when absent"
 }

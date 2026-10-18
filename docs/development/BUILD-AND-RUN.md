@@ -74,7 +74,7 @@ npm run prepare:onboarding
 
 - `npm test`：先生成 dist，再运行前端/Windows 连接器 Node 测试、需求结构与源码边界检查。
 - `npm run test:telemetry-rust`：Rust 单元与本机采样测试。
-- `npm run test:native-pg`：独立 Docker PostgreSQL + Go race，全程不读取业务数据库；镜像拉取或 C 编译器缺失会明确失败。
+- `npm run test:native-pg`：独立 Docker PostgreSQL + Go race，全程不读取业务数据库；镜像缺失时拉取固定 digest；镜像拉取失败或 C 编译器缺失会明确失败。
 - `.github/workflows/ci.yml`：干净 runner 构建与以上测试，避免仅在开发机上可用。
 
 有 Docker 和编译器不等于外部目标、RDP 桌面或生产长稳态已验收。
